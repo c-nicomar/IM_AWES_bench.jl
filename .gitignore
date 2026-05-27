@@ -1,0 +1,28 @@
+# Julia environment
+.julia/
+.julia_env/
+
+# Julia package/development artifacts
+Manifest.toml
+
+# Precompilation / compiled cache
+*.ji
+*.so
+*.dll
+*.dylib
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# Results / generated outputs
+results/
+sim_results/
+figures/generated/
+data/generated/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
