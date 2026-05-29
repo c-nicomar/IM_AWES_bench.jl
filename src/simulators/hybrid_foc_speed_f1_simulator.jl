@@ -11,25 +11,28 @@
 # Continuous plant:
 #   IM alpha-beta model integrated with RK4
 #
-# Control architecture:
+# Speed/load input options:
+#   speed_reference_source = :ramp     -> internal ramp profile
+#   speed_reference_source = :profile  -> external speed_ref_rpm(t) profile
 #
-#   speed reference profile
-#        ↓
-#   outer speed/flux F1
-#        ↓
-#   Te_ref_out
-#        ↓
-#   isd_ref, isq_ref
-#        ↓
-#   discrete current controller
-#        ↓
-#   continuous IM plant
+#   load_source = :internal            -> internal load profile
+#   load_source = :profile             -> external torque_ref_Nm(t) profile
 #
-# Load estimator options:
-#   :none    -> TL_est = 0
-#   :actual  -> TL_est = actual simulated load, useful as ideal benchmark
-#   :kalman  -> TL_est from discrete Kalman load-torque estimator
+# For profile mode, values are linearly interpolated at each simulation time,
+# similar to Simulink timeseries interpolation.
+#
+# Mechanical sign convention:
+#
+#   TL + Te = J*dω/dt + B*ω
+#
+# equivalently:
+#
+#   J*dω/dt = Te + TL - B*ω
+#
+# Therefore:
+#   positive TL pulls toward positive speed.
 # ============================================================
+
 
 function speed_reference_ramp_profile(
     t;
@@ -56,13 +59,46 @@ function speed_reference_ramp_profile(
 end
 
 
+function interp_profile_linear(t, time_vec, value_vec)
+    if isempty(time_vec)
+        error("Profile time vector is empty.")
+    end
+
+    if length(time_vec) != length(value_vec)
+        error("Profile time and value vectors must have the same length.")
+    end
+
+    if any(diff(time_vec) .<= 0.0)
+        error("Profile time vector must be strictly increasing. Check for duplicate or unsorted time values.")
+    end
+
+    if t <= time_vec[1]
+        return value_vec[1]
+    elseif t >= time_vec[end]
+        return value_vec[end]
+    end
+
+    idx = searchsortedlast(time_vec, t)
+
+    t0 = time_vec[idx]
+    t1 = time_vec[idx + 1]
+
+    y0 = value_vec[idx]
+    y1 = value_vec[idx + 1]
+
+    α = (t - t0) / (t1 - t0)
+
+    return y0 + α * (y1 - y0)
+end
+
+
 function simulate_foc_speed_f1_hybrid(;
     t_end = 12.0,
     Ts = 100e-6,
     plant_substeps = 1,
 
     # ------------------------------------------------------------
-    # Speed reference profile
+    # Internal speed reference profile
     # ------------------------------------------------------------
     t_ramp_up_start = 1.0,
     t_ramp_up_end = 4.0,
@@ -71,7 +107,23 @@ function simulate_foc_speed_f1_hybrid(;
     wm_ref_high_rpm = 500.0,
 
     # ------------------------------------------------------------
-    # Load profile
+    # External profile support
+    # ------------------------------------------------------------
+    speed_reference_source = :ramp,   # :ramp or :profile
+    load_source = :internal,          # :internal or :profile
+
+    profile_time = Float64[],
+    profile_speed_ref_rpm = Float64[],
+    profile_load_torque_Nm = Float64[],
+
+    # If CSV torque already follows:
+    #   positive TL pulls toward positive speed
+    # use +1.
+    # If CSV has opposite sign, use -1.
+    profile_torque_sign = 1.0,
+
+    # ------------------------------------------------------------
+    # Internal load profile
     # ------------------------------------------------------------
     load_profile = :steps,
     Tload = 0.0,
@@ -89,13 +141,17 @@ function simulate_foc_speed_f1_hybrid(;
     #   :kalman
     load_estimator = :none,
     use_load_feedforward = false,
-    load_ff_sign = 1.0,
+
+    # With convention J*dω = Te + TL - Bω:
+    #   Te_ff = J*dωref + B*ωref - TL_est
+    # therefore default load feedforward sign should be -1.
+    load_ff_sign = -1.0,
 
     # Kalman estimator tuning
     TL_kalman_R = 0.01,
     TL_kalman_q_omega = 0.1,
     TL_kalman_q_TL = 6.0,
-    TL_kalman_limit_positive = true,
+    TL_kalman_limit_positive = false,
 
     # ------------------------------------------------------------
     # Machine nominal parameters
@@ -116,7 +172,11 @@ function simulate_foc_speed_f1_hybrid(;
     outer_Is_max = 40.0,
     isd_min = 5.0,
     Te_max = 124.0419647,
+
+    # Speed reference ramp limit inside outer loop.
+    # For exact profile playback, pass wm_dot_max = 1e6 or similarly high.
     wm_dot_max = 100.0,
+
     id_dot_max = 600.0,
 
     # ------------------------------------------------------------
@@ -153,6 +213,28 @@ function simulate_foc_speed_f1_hybrid(;
     ctrl_sigma_Lss_scale = 1.0,
     ctrl_k_scale = 1.0,
 )
+
+    # ============================================================
+    # Profile validation
+    # ============================================================
+
+    if speed_reference_source == :profile || load_source == :profile
+        if isempty(profile_time)
+            error("profile_time is empty, but profile mode was requested.")
+        end
+
+        if any(diff(profile_time) .<= 0.0)
+            error("profile_time must be strictly increasing.")
+        end
+
+        if speed_reference_source == :profile && length(profile_speed_ref_rpm) != length(profile_time)
+            error("profile_speed_ref_rpm must have the same length as profile_time.")
+        end
+
+        if load_source == :profile && length(profile_load_torque_Nm) != length(profile_time)
+            error("profile_load_torque_Nm must have the same length as profile_time.")
+        end
+    end
 
     # ============================================================
     # Nominal parameters
@@ -311,6 +393,19 @@ function simulate_foc_speed_f1_hybrid(;
     isα_vec = Vector{Float64}(undef, N)
     isβ_vec = Vector{Float64}(undef, N)
 
+    ia_vec = Vector{Float64}(undef, N)
+    ib_vec = Vector{Float64}(undef, N)
+    ic_vec = Vector{Float64}(undef, N)
+
+    va_vec = Vector{Float64}(undef, N)
+    vb_vec = Vector{Float64}(undef, N)
+    vc_vec = Vector{Float64}(undef, N)
+
+    Pelec_vec = Vector{Float64}(undef, N)
+    Pmech_vec = Vector{Float64}(undef, N)
+    Pload_vec = Vector{Float64}(undef, N)
+    Pfric_vec = Vector{Float64}(undef, N)
+
     sat_current_vec = Vector{Float64}(undef, N)
     sat_isd_vec = Vector{Float64}(undef, N)
     sat_isq_vec = Vector{Float64}(undef, N)
@@ -326,27 +421,65 @@ function simulate_foc_speed_f1_hybrid(;
         t = (kstep - 1) * Ts
 
         # --------------------------------------------------------
-        # Speed reference and actual load torque
+        # Speed reference
         # --------------------------------------------------------
 
-        wm_ref = speed_reference_ramp_profile(
-            t;
-            t_ramp_up_start = t_ramp_up_start,
-            t_ramp_up_end = t_ramp_up_end,
-            t_hold_end = t_hold_end,
-            t_ramp_down_end = t_ramp_down_end,
-            wm_ref_high_rpm = wm_ref_high_rpm,
-        )
+        if speed_reference_source == :ramp
 
-        Tload_k = load_torque_profile(
-            t;
-            load_profile = load_profile,
-            Tload = Tload,
-            Tload_step1 = Tload_step1,
-            Tload_step2 = Tload_step2,
-            t_load_step1 = t_load_step1,
-            t_load_step2 = t_load_step2,
-        )
+            wm_ref = speed_reference_ramp_profile(
+                t;
+                t_ramp_up_start = t_ramp_up_start,
+                t_ramp_up_end = t_ramp_up_end,
+                t_hold_end = t_hold_end,
+                t_ramp_down_end = t_ramp_down_end,
+                wm_ref_high_rpm = wm_ref_high_rpm,
+            )
+
+        elseif speed_reference_source == :profile
+
+            speed_ref_rpm_k = interp_profile_linear(
+                t,
+                profile_time,
+                profile_speed_ref_rpm,
+            )
+
+            wm_ref = speed_ref_rpm_k * 2π / 60.0
+
+        else
+
+            error("Unknown speed_reference_source = $speed_reference_source. Use :ramp or :profile.")
+
+        end
+
+        # --------------------------------------------------------
+        # Load torque
+        # --------------------------------------------------------
+
+        if load_source == :internal
+
+            Tload_k = load_torque_profile(
+                t;
+                load_profile = load_profile,
+                Tload = Tload,
+                Tload_step1 = Tload_step1,
+                Tload_step2 = Tload_step2,
+                t_load_step1 = t_load_step1,
+                t_load_step2 = t_load_step2,
+            )
+
+        elseif load_source == :profile
+
+            Tload_k = profile_torque_sign * interp_profile_linear(
+                t,
+                profile_time,
+                profile_load_torque_Nm,
+            )
+
+        else
+
+            error("Unknown load_source = $load_source. Use :internal or :profile.")
+
+        end
 
         # --------------------------------------------------------
         # Rotor-flux observer update
@@ -431,6 +564,40 @@ function simulate_foc_speed_f1_hybrid(;
         vsα_hold, vsβ_hold = inverse_park_voltage(ctrl.vsd, ctrl.vsq, obs.theta_e)
 
         # --------------------------------------------------------
+        # Reconstruct abc quantities from alpha-beta
+        # --------------------------------------------------------
+        #
+        # Assumption:
+        #   balanced three-phase system, zero sequence = 0
+
+        ia_k = x.isα
+        ib_k = -0.5 * x.isα + sqrt(3) / 2 * x.isβ
+        ic_k = -0.5 * x.isα - sqrt(3) / 2 * x.isβ
+
+        va_k = vsα_hold
+        vb_k = -0.5 * vsα_hold + sqrt(3) / 2 * vsβ_hold
+        vc_k = -0.5 * vsα_hold - sqrt(3) / 2 * vsβ_hold
+
+        # Instantaneous stator electrical power.
+        # Positive means electrical power entering the stator from the converter.
+        Pelec_k = va_k * ia_k + vb_k * ib_k + vc_k * ic_k
+
+        # Electromagnetic mechanical power.
+        # Positive means electromagnetic torque delivering positive mechanical power.
+        torque_k = im_torque(x, plant_p)
+        Pmech_k = torque_k * x.ωm
+
+        # External load mechanical power with the convention:
+        #   J*dω = Te + TL - Bω
+        #
+        # Positive Pload means the external torque injects mechanical power
+        # into the shaft in the positive-speed direction.
+        Pload_k = Tload_k * x.ωm
+
+        # Viscous friction loss.
+        Pfric_k = plant_p.B * x.ωm^2
+
+        # --------------------------------------------------------
         # Store values before plant update
         # --------------------------------------------------------
 
@@ -462,7 +629,7 @@ function simulate_foc_speed_f1_hybrid(;
         speed_vec[kstep] = x.ωm * 60 / (2π)
         omega_vec[kstep] = x.ωm
 
-        torque_vec[kstep] = im_torque(x, plant_p)
+        torque_vec[kstep] = torque_k
         torque_obs_vec[kstep] = obs.Te_raw
 
         flux_r_vec[kstep] = obs.flux_r_mod
@@ -475,6 +642,19 @@ function simulate_foc_speed_f1_hybrid(;
 
         isα_vec[kstep] = x.isα
         isβ_vec[kstep] = x.isβ
+
+        ia_vec[kstep] = ia_k
+        ib_vec[kstep] = ib_k
+        ic_vec[kstep] = ic_k
+
+        va_vec[kstep] = va_k
+        vb_vec[kstep] = vb_k
+        vc_vec[kstep] = vc_k
+
+        Pelec_vec[kstep] = Pelec_k
+        Pmech_vec[kstep] = Pmech_k
+        Pload_vec[kstep] = Pload_k
+        Pfric_vec[kstep] = Pfric_k
 
         sat_current_vec[kstep] = ctrl.saturado ? 1.0 : 0.0
         sat_isd_vec[kstep] = outer.sat_isd
@@ -541,6 +721,19 @@ function simulate_foc_speed_f1_hybrid(;
 
         isα = isα_vec,
         isβ = isβ_vec,
+
+        ia = ia_vec,
+        ib = ib_vec,
+        ic = ic_vec,
+
+        va = va_vec,
+        vb = vb_vec,
+        vc = vc_vec,
+
+        Pelec = Pelec_vec,
+        Pmech = Pmech_vec,
+        Pload = Pload_vec,
+        Pfric = Pfric_vec,
 
         saturation_current = sat_current_vec,
         sat_isd = sat_isd_vec,

@@ -8,13 +8,16 @@
 #
 # Model:
 #
-#   J*dω/dt = Te - TL - B*ω
+#   TL + Te = J*dω/dt + B*ω
+#
+# equivalently:
+#
+#   J*dω/dt = Te + TL - B*ω
 #
 # Discrete Euler model:
 #
-#   ω[k+1]  = (1 - B*Ts/J)*ω[k] - (Ts/J)*TL[k] + (Ts/J)*Te[k]
+#   ω[k+1]  = (1 - B*Ts/J)*ω[k] + (Ts/J)*TL[k] + (Ts/J)*Te[k]
 #   TL[k+1] = TL[k]
-#
 # State:
 #
 #   x = [ω_hat, TL_hat]
@@ -104,7 +107,7 @@ function load_torque_kalman_step!(
     # ------------------------------------------------------------
 
     A11 = 1.0 - (B * Ts) / J
-    A12 = -Ts / J
+    A12 = Ts / J
     Bu1 = Ts / J
 
     Q11 = q_omega

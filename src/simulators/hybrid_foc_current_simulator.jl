@@ -112,7 +112,7 @@ function im_derivatives(
 
     Te = im_torque(x, p)
 
-    dωm = (Te - Tload - p.B * x.ωm) / p.J
+    dωm = (Te + Tload - p.B * x.ωm) / p.J
     dθm = x.ωm
 
     return IMPlantDerivatives(

@@ -53,9 +53,18 @@ Base.@kwdef struct OuterSpeedFluxF1Params
     use_load_feedforward::Bool = false
 
     # Sign convention for load feedforward.
-    # With our plant convention J*dω = Te - Tload - Bω,
-    # a resisting positive Tload is compensated by +Tload.
-    load_ff_sign::Float64 = 1.0
+    #
+    # Mechanical convention:
+    #   TL + Te = J*dω/dt + B*ω
+    #   J*dω/dt = Te + TL - B*ω
+    #
+    # Therefore a positive TL already helps positive acceleration.
+    # To compensate it in the speed loop:
+    #
+    #   Te_ff = J*dωref/dt + B*ωref - TL_est
+    #
+    # so the default feedforward sign is -1.
+    load_ff_sign::Float64 = -1.0
 end
 
 Base.@kwdef struct OuterSpeedFluxF1Output

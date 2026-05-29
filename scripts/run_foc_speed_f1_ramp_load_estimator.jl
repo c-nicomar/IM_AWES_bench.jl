@@ -78,7 +78,7 @@ t_load_step2 = 8.0
 
 load_estimator = :kalman
 use_load_feedforward = true
-load_ff_sign = 1.0
+load_ff_sign = -1.0
 
 TL_kalman_R = 0.01
 TL_kalman_q_omega = 0.1

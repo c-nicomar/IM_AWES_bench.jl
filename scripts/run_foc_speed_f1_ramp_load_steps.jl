@@ -73,7 +73,7 @@ t_load_step2 = 8.0
 
 load_estimator = :none
 use_load_feedforward = false
-load_ff_sign = 1.0
+load_ff_sign = -1.0
 
 # ------------------------------------------------------------
 # Controller limits
@@ -124,7 +124,7 @@ res = IM_AWES_bench_jl.simulate_foc_speed_f1_hybrid(
     load_estimator = load_estimator,
     use_load_feedforward = use_load_feedforward,
     load_ff_sign = load_ff_sign,
-    
+
     Vs_max = Vs_max,
     Is_max = Is_max,
     outer_Is_max = Is_max,

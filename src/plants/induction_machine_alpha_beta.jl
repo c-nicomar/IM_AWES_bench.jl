@@ -88,7 +88,7 @@ function build_induction_machine_alpha_beta_eqs(vars, pars)
         Te ~ 1.5 * p * (ψsα * isβ - ψsβ * isα),
 
         # Mechanical dynamics
-        J * D(ωm) ~ Te - Tload_cmd - B * ωm,
+        J * D(ωm) ~ Te + Tload_cmd - B * ωm,
         D(θm) ~ ωm,
 
         # Useful outputs
