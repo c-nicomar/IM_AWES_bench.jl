@@ -2,6 +2,9 @@
 .julia/
 .julia_env/
 
+# Conda environment
+.CondaPkg
+
 # Julia package/development artifacts
 Manifest.toml
 
