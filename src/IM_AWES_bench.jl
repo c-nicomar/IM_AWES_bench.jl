@@ -1,4 +1,4 @@
-module IM_AWES_bench_jl
+module IM_AWES_bench
 
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
