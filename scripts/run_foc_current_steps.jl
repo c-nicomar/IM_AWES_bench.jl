@@ -1,5 +1,7 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
+if Base.active_project() != joinpath(@__DIR__, "Project.toml")
+    Pkg.activate(joinpath(@__DIR__))
+end
 
 ENV["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
