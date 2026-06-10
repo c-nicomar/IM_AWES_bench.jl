@@ -1,8 +1,7 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 
-include("../src/IM_AWES_bench_jl.jl")
-
+using IM_AWES_bench
 using ControlPlots
 using CSV
 using DataFrames
@@ -18,7 +17,7 @@ t_step = 1.0
 p_pairs = 2.0
 Tload = 0.0
 
-sol, sys = IM_AWES_bench_jl.simulate_scalar_im(
+sol, sys = simulate_scalar_im(
     tspan = (0.0, 10.0),
     frequency_profile = :steps,
     f_ref_val = f_ref,
