@@ -4,6 +4,6 @@ if [[ $(basename $(pwd)) == "bin" ]]; then
     cd ..
 fi
 
-ENV["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+export KMP_DUPLICATE_LIB_OK="TRUE"
 
 julia --project
