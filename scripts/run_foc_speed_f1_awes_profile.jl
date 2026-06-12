@@ -3,8 +3,6 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
     Pkg.activate(joinpath(@__DIR__))
 end
 
-ENV["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
 using IM_AWES_bench
 using ControlPlots
 using CSV
