@@ -1,10 +1,9 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
+if Base.active_project() != joinpath(@__DIR__, "Project.toml")
+    Pkg.activate(joinpath(@__DIR__))
+end
 
-ENV["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
-include("../src/IM_AWES_bench_jl.jl")
-
+using IM_AWES_bench
 using ControlPlots
 using CSV
 using DataFrames
@@ -85,7 +84,7 @@ csv_file = joinpath(results_dir, case_name * ".csv")
 # Run simulation
 # ============================================================
 
-sol, sys = IM_AWES_bench_jl.simulate_foc_current_im(
+sol, sys = simulate_foc_current_im(
     tspan = tspan,
 
     current_reference_profile = current_reference_profile,

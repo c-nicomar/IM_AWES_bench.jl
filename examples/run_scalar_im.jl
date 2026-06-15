@@ -1,13 +1,14 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
+if Base.active_project() != joinpath(@__DIR__, "Project.toml")
+    Pkg.activate(joinpath(@__DIR__))
+end
 
-include("../src/IM_AWES_bench_jl.jl")
-
+using IM_AWES_bench
 using ControlPlots
 using CSV
 using DataFrames
 
-sol, sys = IM_AWES_bench_jl.simulate_scalar_im(
+sol, sys = simulate_scalar_im(
     tspan = (0.0, 10.0),
     f_ref_val = 25.0,
     Tload_val = 0.0,
