@@ -41,6 +41,17 @@ Base.@kwdef struct OuterSpeedFluxF1Params
     wm_dot_max::Float64 = 100.0
     id_dot_max::Float64 = 600.0
 
+    # Field weakening
+    #
+    # If enabled, the F1 flux reference is reduced above `wm_base_fw`.
+    # This is a simple speed-based field-weakening law:
+    #
+    #   isd_ref ≈ isd_nom * wm_base_fw / |wm|
+    #
+    # with lower bound `isd_min`.
+    use_field_weakening::Bool = false
+    wm_base_fw::Float64 = 120.0
+
     # Speed filter and PI design
     tau_f_wm::Float64 = 10e-3
     ts_wm::Float64 = 500e-3
@@ -89,6 +100,11 @@ Base.@kwdef struct OuterSpeedFluxF1Output
 
     Kt_nom::Float64 = 0.0
     isq_max_disp::Float64 = 0.0
+
+    Kt_ref::Float64 = 0.0
+    isd_ref_no_fw::Float64 = 0.0
+    fw_speed::Float64 = 0.0
+    field_weakening_active::Int = 0
 
     Te_PI::Float64 = 0.0
     Te_ff::Float64 = 0.0
@@ -183,12 +199,29 @@ function outer_speed_flux_f1_step!(
     state.ui_wm += Ki_wm * e_wm * p.Ts - Kaw_wm * error_sat_wm
 
     # ------------------------------------------------------------
-    # F1 flux mode: constant d-axis current reference
+    # F1 flux mode with optional speed-based field weakening
     # ------------------------------------------------------------
 
-    isd_desired = p.isd_nom
-    lambda_ref_out = lambda_rd_nom
+    isd_ref_no_fw = p.isd_nom
 
+    # Use the larger of actual filtered speed and ramped reference speed.
+    # This avoids waiting too long to weaken the field during high-speed
+    # reel-in/reel-out transients.
+    fw_speed = max(abs(wm_filt), abs(wm_ref_ramp))
+
+    if p.use_field_weakening && fw_speed > p.wm_base_fw
+        isd_desired = clamp(
+            p.isd_nom * p.wm_base_fw / fw_speed,
+            p.isd_min,
+            p.isd_nom,
+        )
+        field_weakening_active = 1
+    else
+        isd_desired = p.isd_nom
+        field_weakening_active = 0
+    end
+
+    # Keep the existing id ramp. This avoids abrupt flux/current steps.
     delta_id_max = p.id_dot_max * p.Ts
     delta_id = isd_desired - state.id_ref_ant
     delta_id = clamp(delta_id, -delta_id_max, delta_id_max)
@@ -207,11 +240,20 @@ function outer_speed_flux_f1_step!(
         sat_isd = 0
     end
 
+    # Rotor-flux reference associated with the final d-axis current reference.
+    # Below base speed this equals lambda_rd_nom. In field weakening it is lower.
+    lambda_ref_out = p.Lm * isd_ref
+
     # ------------------------------------------------------------
-    # T1 torque mode: simple nominal torque constant
+    # T1 torque mode: torque-to-iq using the weakened flux
     # ------------------------------------------------------------
 
-    isq_ref_unsat = Te_ref_out / Kt_nom
+    Kt_ref = 1.5 * p.p * k * lambda_ref_out
+    Kt_ref_safe = max(abs(Kt_ref), 1e-9)
+
+    isq_ref_unsat = Te_ref_out / Kt_ref_safe
+
+
 
     # ------------------------------------------------------------
     # q-axis current saturation with d-axis priority
@@ -252,6 +294,11 @@ function outer_speed_flux_f1_step!(
 
         Kt_nom = Kt_nom,
         isq_max_disp = isq_max_disp,
+
+        Kt_ref = Kt_ref,
+        isd_ref_no_fw = isd_ref_no_fw,
+        fw_speed = fw_speed,
+        field_weakening_active = field_weakening_active,
 
         Te_PI = Te_PI,
         Te_ff = Te_ff,
