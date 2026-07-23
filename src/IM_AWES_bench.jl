@@ -28,6 +28,7 @@ include("controls/FOC/current_controller.jl")
 include("controls/FOC/current_controller_discrete.jl")
 include("controls/FOC/outer_torque_flux_f1_discrete.jl")
 include("controls/FOC/outer_speed_flux_f1_discrete.jl")
+include("controls/FOC/outer_speed_flux_mtpa_discrete.jl")
 
 # ============================================================
 # Plants
@@ -57,6 +58,7 @@ include("systems/foc_current_im_system.jl")
 include("simulators/hybrid_foc_current_simulator.jl")
 include("simulators/hybrid_foc_torque_f1_simulator.jl")
 include("simulators/hybrid_foc_speed_f1_simulator.jl")
+include("simulators/hybrid_foc_speed_mtpa_simulator.jl")
 
 # ============================================================
 # Exports: scalar / MTK systems
@@ -76,6 +78,7 @@ export simulate_foc_current_im
 export simulate_foc_current_hybrid
 export simulate_foc_torque_f1_hybrid
 export simulate_foc_speed_f1_hybrid
+export simulate_foc_speed_mtpa_hybrid
 
 # ============================================================
 # Exports: useful discrete estimator/controller types
@@ -105,5 +108,10 @@ export OuterSpeedFluxF1State
 export OuterSpeedFluxF1Params
 export OuterSpeedFluxF1Output
 export outer_speed_flux_f1_step!
+
+export OuterSpeedFluxMTPAState
+export OuterSpeedFluxMTPAParams
+export OuterSpeedFluxMTPAOutput
+export outer_speed_flux_mtpa_step!
 
 end
