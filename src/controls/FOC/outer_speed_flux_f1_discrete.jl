@@ -35,7 +35,7 @@ Base.@kwdef struct OuterSpeedFluxF1Params
     isd_nom::Float64 = 23.04579328
 
     # Limits
-    Is_max::Float64 = 40.0
+    Is_max::Float64 = 40.0*sqrt(2.0)
     isd_min::Float64 = 5.0
     Te_max::Float64 = 124.0419647
     wm_dot_max::Float64 = 100.0
