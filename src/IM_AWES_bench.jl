@@ -49,6 +49,7 @@ include("simulators/hybrid_foc_current_simulator.jl")
 include("simulators/hybrid_foc_torque_f1_simulator.jl")
 include("simulators/hybrid_foc_speed_f1_simulator.jl")
 include("simulators/hybrid_foc_speed_mtpa_simulator.jl")
+include("simulators/hybrid_foc_speed_f1_160kw_simulator.jl")
 
 # ============================================================
 # Exports: scalar / MTK systems
@@ -103,5 +104,9 @@ export OuterSpeedFluxMTPAState
 export OuterSpeedFluxMTPAParams
 export OuterSpeedFluxMTPAOutput
 export outer_speed_flux_mtpa_step!
+
+export simulate_foc_speed_f1_im_160kw
+export im_160kw_load_torque_profile
+export im_160kw_speed_reference
 
 end
