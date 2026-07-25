@@ -892,14 +892,6 @@ Set:
 TL_kalman_limit_positive = false
 ```
 
-### OpenMP/plotting error on Windows
-
-Add before `using ControlPlots` in run scripts:
-
-```julia
-ENV["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-```
-
 ---
 
 ## 21. Current development status

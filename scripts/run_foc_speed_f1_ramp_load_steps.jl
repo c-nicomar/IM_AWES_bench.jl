@@ -4,7 +4,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using IM_AWES_bench
-using ControlPlots
+using MakieControlPlots
 using CSV
 using DataFrames
 
@@ -177,8 +177,7 @@ p_plot = plotx(
     fig = "FOC speed F1",
     title = "FOC outer speed loop: mode_control=2, mode_torque=1, mode_flux=1",
     yzoom = 1.20,
-    legend_size = 8,
-    loc = "best",
+    legendsize = 8,
 )
 
 display(p_plot)

@@ -4,7 +4,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using IM_AWES_bench
-using ControlPlots
+using MakieControlPlots
 using CSV
 using DataFrames
 
@@ -214,8 +214,7 @@ if include_observer
         fig = "Scalar frequency/load steps with observer",
         title = "Scalar V/f control with load steps and rotor-flux observer",
         yzoom = 1.25,
-        legend_size = 9,
-        loc = "best",
+        legendsize = 9,
     )
 
 else
@@ -239,8 +238,7 @@ else
         fig = "Scalar frequency/load steps",
         title = "Scalar V/f control: frequency steps followed by load-torque steps",
         yzoom = 1.25,
-        legend_size = 9,
-        loc = "best",
+        legendsize = 9,
     )
 
 end

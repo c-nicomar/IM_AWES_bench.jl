@@ -4,7 +4,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using IM_AWES_bench
-using ControlPlots
+using MakieControlPlots
 using CSV
 using DataFrames
 
@@ -55,8 +55,7 @@ p = plotx(
     fig = "Scalar 25 Hz",
     title = "Scalar V/f induction machine - 25 Hz",
     yzoom = 1.25,
-    legend_size = 9,
-    loc = "best",
+    legendsize = 9,
 )
 
 display(p)
