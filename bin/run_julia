@@ -6,4 +6,4 @@ fi
 
 export KMP_DUPLICATE_LIB_OK="TRUE"
 
-julia --project
+julia -t auto --project
