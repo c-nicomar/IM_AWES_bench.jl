@@ -288,6 +288,31 @@ runtime load cost was always `ModelingToolkit` plus `OrdinaryDiffEq`, which are
 the only two things `src/IM_AWES_bench.jl` actually imports. The entire load-time
 win therefore rests on phase 3.
 
+## Where things stand
+
+Current as of the rebase of `main` onto this branch.
+
+- **Suite: 81 pass, 0 fail, ~63 s**, run with `include("test/runtests.jl")`.
+  Re-verified after the rebase, so this reflects `main`'s commits sitting on top
+  of the extension, not the pre-rebase tree.
+- **Deprecated MTK API replaced.** ModelingToolkit v11 warns on both calls the
+  system builders used, so `ODESystem(eqs, t)` became `System(eqs, t)` and
+  `structural_simplify(sys)` became `mtkcompile(sys)`, in
+  `ext/systems/scalar_im_system.jl` and `ext/systems/foc_current_im_system.jl`.
+  Those were the only two call sites. Runs are warning-free.
+- **The suite prints progress.** Several steps run for minutes with nothing on
+  screen — precompiling MTK, `mtkcompile` on the two systems, and each `probe`
+  spawning a fresh julia — which is indistinguishable from a hang. `runtests.jl`
+  now prints a flushed, timestamped line per step.
+- **Where the time goes**, now that it is visible: the four hybrid simulators
+  finish in ~1 s. Nearly all the remaining time is the four extension probes
+  spawning fresh julia processes (each loads the full MTK stack from scratch)
+  plus the two `mtkcompile` builds. If the suite ever needs to be faster, that
+  is the place to look — the probes are the honest cost of testing extension
+  loading, but they could be collapsed into fewer subprocesses.
+- **`Manifest-v1.12.toml`** is the manifest in use, gitignored. The hyphen is
+  required; see the note under Verified facts.
+
 ## Open questions
 
 - Does anything outside this repo depend on the MTK builders being available
