@@ -7,8 +7,13 @@ Everything symbolic lives here: the continuous equation builders and the two
 acausal system assemblies. It loads automatically once both ModelingToolkit and
 OrdinaryDiffEq are present in the session, so
 
-    using IM_AWES_bench                      # hybrid simulators only, no MTK
-    using IM_AWES_bench, ModelingToolkit     # + the MTK system builders
+    using IM_AWES_bench                                        # hybrid simulators only, no MTK
+    using IM_AWES_bench, ModelingToolkit, OrdinaryDiffEq       # + the MTK system builders
+
+Both triggers are required. Julia loads an extension only once *every* package
+in its trigger list is present, so `using ModelingToolkit` alone leaves the
+builders at zero methods — OrdinaryDiffEq is not optional here, because the
+`simulate_*` functions default to `Rodas5P()` and call `solve`.
 
 The hybrid FOC simulators in `src/simulators/` are plain Julia over concrete
 `Float64` state and never touch symbolic types, which is what makes this split

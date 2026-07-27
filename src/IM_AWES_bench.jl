@@ -13,8 +13,9 @@ bla
 # extension can add *methods* to a function its parent already declares, but it
 # cannot introduce a new binding into the parent's namespace.
 #
-# Calling one of these without `using ModelingToolkit` raises a MethodError
-# listing zero methods, which is the intended signal.
+# Calling one of these before both triggers are loaded raises a MethodError
+# listing zero methods, which is the intended signal. Loading ModelingToolkit
+# alone is not enough — Julia waits for every package in the trigger list.
 
 function build_scalar_im_system end
 function simulate_scalar_im end
