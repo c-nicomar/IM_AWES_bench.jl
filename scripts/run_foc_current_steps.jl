@@ -4,6 +4,10 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using IM_AWES_bench
+# This script uses the MTK system builders, which live in a package
+# extension. Both of these are needed to trigger it.
+using ModelingToolkit
+using OrdinaryDiffEq
 using MakieControlPlots
 using CSV
 using DataFrames

@@ -168,6 +168,9 @@ function build_scalar_im_system(;
         ψsd_e_obs(t)
         ψsq_e_obs(t)
         flux_s_mod_obs(t)
+
+        wsl_obs(t)
+        ws_obs(t)
     end
 
     vars = (
@@ -228,6 +231,9 @@ function build_scalar_im_system(;
         ψsd_e_obs = ψsd_e_obs,
         ψsq_e_obs = ψsq_e_obs,
         flux_s_mod_obs = flux_s_mod_obs,
+
+        wsl_obs = wsl_obs,
+        ws_obs = ws_obs,
     )
 
     # ============================================================
@@ -276,13 +282,14 @@ function build_scalar_im_system(;
         observer_eqs,
     )
 
-    @named sys = ODESystem(eqs, t)
-    return structural_simplify(sys)
+    @named sys = System(eqs, t)
+    return mtkcompile(sys)
 end
 
 
-# Backward-compatible alias, so old scripts do not immediately break.
-build_scalar_im_model = build_scalar_im_system
+# The `build_scalar_im_model` alias lives in the main module now. An extension
+# cannot introduce a new binding into its parent's namespace, and the alias is
+# exported from there — see src/IM_AWES_bench.jl.
 
 
 """

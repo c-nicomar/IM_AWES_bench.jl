@@ -426,8 +426,8 @@ function build_foc_current_im_system(;
         dummy_abc_eqs,
     )
 
-    @named sys = ODESystem(eqs, t)
-    return structural_simplify(sys)
+    @named sys = System(eqs, t)
+    return mtkcompile(sys)
 end
 
 

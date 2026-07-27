@@ -104,7 +104,14 @@ function build_rotor_flux_observer_eqs(vars, pars)
         # Instead of atan(0,0), use atan(λβ, λα + eps).
         # This gives θe = 0 at zero flux and avoids a singular initial DAE.
         # --------------------------------------------------------
-        flux_r_mod_obs ~ sqrt(λrα_obs^2 + λrβ_obs^2),
+        # The epsilon inside the sqrt is not cosmetic. sqrt(x) has an infinite
+        # derivative at x = 0, so the symbolic Jacobian of the unregularized
+        # form is λrα/sqrt(λrα^2 + λrβ^2) = 0/0 = NaN at zero flux. Solvers
+        # that use MTK's analytical Jacobian (Rodas5P, FBDF) then produce NaN
+        # on their very first step from a zero-flux initial condition. The
+        # offset shifts the magnitude by ~1e-12 Wb at zero flux and less
+        # thereafter, which is far below any physically meaningful flux.
+        flux_r_mod_obs ~ sqrt(λrα_obs^2 + λrβ_obs^2 + flux_eps^2),
         θe_obs ~ atan(λrβ_obs, λrα_obs + flux_eps),
 
         # --------------------------------------------------------
@@ -134,7 +141,8 @@ function build_rotor_flux_observer_eqs(vars, pars)
         # --------------------------------------------------------
         ψsd_e_obs ~ Lss * isd_e_obs + (Lm / Lrr) * λrd_e_obs,
         ψsq_e_obs ~ Lss * isq_e_obs + (Lm / Lrr) * λrq_e_obs,
-        flux_s_mod_obs ~ sqrt(ψsd_e_obs^2 + ψsq_e_obs^2),
+        # Same zero-derivative regularization as flux_r_mod_obs above.
+        flux_s_mod_obs ~ sqrt(ψsd_e_obs^2 + ψsq_e_obs^2 + flux_eps^2),
 
         # --------------------------------------------------------
         # Estimated slip and synchronous electrical speed

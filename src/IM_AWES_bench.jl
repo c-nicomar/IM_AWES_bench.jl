@@ -3,23 +3,28 @@ module IM_AWES_bench
 bla
 """
 
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-using OrdinaryDiffEq
-
 # ============================================================
-# Profiles
+# ModelingToolkit surface
 # ============================================================
+#
+# The symbolic model builders live in ext/IM_AWES_benchMTKExt.jl and load only
+# when ModelingToolkit and OrdinaryDiffEq are both present in the session. These
+# stubs exist so the names can be declared and exported from here: a package
+# extension can add *methods* to a function its parent already declares, but it
+# cannot introduce a new binding into the parent's namespace.
+#
+# Calling one of these before both triggers are loaded raises a MethodError
+# listing zero methods, which is the intended signal. Loading ModelingToolkit
+# alone is not enough — Julia waits for every package in the trigger list.
 
-include("profiles/frequency_profiles.jl")
-include("profiles/load_profiles.jl")
+function build_scalar_im_system end
+function simulate_scalar_im end
+function build_foc_current_im_system end
+function simulate_foc_current_im end
 
-# ============================================================
-# Continuous / MTK control blocks
-# ============================================================
-
-include("controls/scalar_vf_control.jl")
-include("controls/FOC/current_controller.jl")
+# Backward-compatible alias, so old scripts do not immediately break. It has to
+# be declared here rather than in the extension, for the same binding reason.
+const build_scalar_im_model = build_scalar_im_system
 
 # ============================================================
 # Discrete FOC control blocks
@@ -31,25 +36,11 @@ include("controls/FOC/outer_speed_flux_f1_discrete.jl")
 include("controls/FOC/outer_speed_flux_mtpa_discrete.jl")
 
 # ============================================================
-# Plants
-# ============================================================
-
-include("plants/induction_machine_alpha_beta.jl")
-
-# ============================================================
 # Estimators
 # ============================================================
 
-include("estimators/rotor_flux_observer.jl")
 include("estimators/rotor_flux_observer_discrete.jl")
 include("estimators/load_torque_kalman_discrete.jl")
-
-# ============================================================
-# MTK systems
-# ============================================================
-
-include("systems/scalar_im_system.jl")
-include("systems/foc_current_im_system.jl")
 
 # ============================================================
 # Hybrid simulators
