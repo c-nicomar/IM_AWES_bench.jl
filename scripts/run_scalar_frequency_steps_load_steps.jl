@@ -218,7 +218,7 @@ if include_observer
         fig = "Scalar frequency/load steps with observer",
         title = "Scalar V/f control with load steps and rotor-flux observer",
         yzoom = 1.25,
-        legendsize = 9,
+        legendsize = 14,
     )
 
 else
@@ -242,7 +242,7 @@ else
         fig = "Scalar frequency/load steps",
         title = "Scalar V/f control: frequency steps followed by load-torque steps",
         yzoom = 1.25,
-        legendsize = 9,
+        legendsize = 14,
     )
 
 end

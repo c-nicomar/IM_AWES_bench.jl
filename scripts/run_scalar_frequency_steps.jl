@@ -85,7 +85,7 @@ p_plot = plotx(
     fig = "Scalar frequency steps",
     title = "Scalar V/f control with stepped frequency reference",
     yzoom = 1.25,
-    legendsize = 9,
+    legendsize = 14,
 )
 
 display(p_plot)

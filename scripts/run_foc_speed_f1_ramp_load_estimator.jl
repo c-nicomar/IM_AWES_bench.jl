@@ -196,7 +196,7 @@ p_plot = plotx(
     fig = "FOC speed F1 with load estimator",
     title = "FOC speed loop with optional load-torque feedforward",
     yzoom = 1.20,
-    legendsize = 8,
+    legendsize = 14,
 )
 
 display(p_plot)
