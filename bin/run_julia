@@ -8,4 +8,13 @@ export KMP_DUPLICATE_LIB_OK="TRUE"
 
 julia_init='menu() = include("scripts/menu.jl"); menu2() = include("scripts/menu2.jl"); println("Type menu() to run one of the hybrid FOC examples, or menu2() for the ModelingToolkit examples.")'
 
-julia -t auto --project -i -e "$julia_init"
+# Use the custom system image built by bin/sysimage, if it exists.
+sysimage_args=()
+for sysimage in bin/sysimage.so bin/sysimage.dylib bin/sysimage.dll; do
+    if [[ -f $sysimage ]]; then
+        sysimage_args=(-J "$sysimage")
+        break
+    fi
+done
+
+julia -t auto --project "${sysimage_args[@]}" -i -e "$julia_init"

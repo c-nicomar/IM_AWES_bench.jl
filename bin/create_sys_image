@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Build the custom system image into bin/. Takes a while (10-20 min), but
+# afterwards bin/run_julia starts with the heavy dependencies preloaded.
+#
+# Note: julia is started with the *default* system image here, so that the
+# image being written is not the one currently in use.
+
+if [[ $(basename $(pwd)) == "bin" ]]; then
+    cd ..
+fi
+
+export KMP_DUPLICATE_LIB_OK="TRUE"
+
+julia -t auto --startup-file=no test/create_sys_image.jl
