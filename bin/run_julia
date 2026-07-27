@@ -4,17 +4,29 @@ if [[ $(basename $(pwd)) == "bin" ]]; then
     cd ..
 fi
 
+use_sysimage=true
+julia_args=()
+for arg in "$@"; do
+    if [[ $arg == "--nosysimage" ]]; then
+        use_sysimage=false
+    else
+        julia_args+=("$arg")
+    fi
+done
+
 export KMP_DUPLICATE_LIB_OK="TRUE"
 
 julia_init='menu() = include("scripts/menu.jl"); menu2() = include("scripts/menu2.jl"); println("Type menu() to run one of the hybrid FOC examples, or menu2() for the ModelingToolkit examples.")'
 
-# Use the custom system image built by bin/sysimage, if it exists.
+# Use the custom system image built by bin/sysimage, if it exists (unless --nosysimage was given).
 sysimage_args=()
-for sysimage in bin/sysimage.so bin/sysimage.dylib bin/sysimage.dll; do
-    if [[ -f $sysimage ]]; then
-        sysimage_args=(-J "$sysimage")
-        break
-    fi
-done
+if [[ $use_sysimage == true ]]; then
+    for sysimage in bin/sysimage.so bin/sysimage.dylib bin/sysimage.dll; do
+        if [[ -f $sysimage ]]; then
+            sysimage_args=(-J "$sysimage")
+            break
+        fi
+    done
+fi
 
-julia -t auto --project "${sysimage_args[@]}" -i -e "$julia_init"
+julia -t auto --project "${sysimage_args[@]}" "${julia_args[@]}" -i -e "$julia_init"
