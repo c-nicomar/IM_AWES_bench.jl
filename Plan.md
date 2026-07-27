@@ -124,7 +124,7 @@ settling at 0.4084 Wb = `Lm * isd`. Two regression testsets added: one asserting
 the analytical Jacobian is finite at zero flux, one asserting reference
 tracking.
 
-### Still open: `simulate_scalar_im(include_observer = true)` throws
+### Fixed: `simulate_scalar_im(include_observer = true)` threw
 
 Separate pre-existing bug, found while testing the above. It fails immediately:
 
@@ -137,8 +137,15 @@ both (`foc_current_im_system.jl:225-226`), so the slip equations were added for
 the FOC path and never back-ported to the scalar one. The observer branch of the
 scalar system is dead code that errors the moment it is switched on.
 
-Not fixed — it is independent of the migration. Worth doing before phase 3 only
-because the two systems will end up in the same extension file.
+Fixed by declaring the two missing variables rather than by deleting the branch:
+`scripts/run_scalar_frequency_steps_load_steps.jl` sets `include_observer = true`
+and branches on it in five places (variable extraction, an alternative plot
+layout, CSV columns, console output), so this was a broken feature rather than
+dead code.
+
+Verified: the observer now reconstructs the plant torque to within 1e-4 N m once
+the startup transient passes, and rotor flux settles at 0.893 Wb. Regression
+testset added.
 
 ## Phase 3 — the extension move
 

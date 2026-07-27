@@ -164,6 +164,27 @@ end
             @test all(u -> all(isfinite, u), sol.u)
         end
 
+        # The observer branch of the scalar system used to throw
+        # `FieldError: type NamedTuple has no field wsl_obs` — the slip
+        # equations were added to build_rotor_flux_observer_eqs for the FOC
+        # system and never back-ported here. Nothing exercised it, so it went
+        # unnoticed.
+        @testset "simulate_scalar_im with observer" begin
+            sol, sys = simulate_scalar_im(; tspan = (0.0, 2.0), include_observer = true)
+            @test length(sol.t) > 1
+            @test all(u -> all(isfinite, u), sol.u)
+            @test isfinite(sol(2.0, idxs = sys.ws_obs))
+            @test isfinite(sol(2.0, idxs = sys.wsl_obs))
+
+            # The observer must reconstruct the plant torque, not merely run.
+            # They agree to ~1e-4 N m once the startup transient has passed.
+            for t in (1.0, 1.5, 2.0)
+                @test sol(t, idxs = sys.Te_obs) ≈ sol(t, idxs = sys.Te) atol = 1e-3
+            end
+            # Rotor flux settles near its rated value.
+            @test sol(2.0, idxs = sys.flux_r_mod_obs) ≈ 0.893 atol = 0.02
+        end
+
         @testset "simulate_foc_current_im" begin
             tspan = (0.0, 0.05)
             sol, sys = simulate_foc_current_im(; tspan)
