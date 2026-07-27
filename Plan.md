@@ -3,7 +3,12 @@
 Goal: `using IM_AWES_bench` loads with no symbolic/solver stack. The hybrid FOC
 simulators are the fast path and must not pay for ModelingToolkit. The
 scalar/FOC-current MTK builders become available when the user also loads
-ModelingToolkit.
+**both** ModelingToolkit and OrdinaryDiffEq — the extension's two triggers.
+ModelingToolkit alone is not enough, because Julia loads an extension only once
+every package in its trigger list is present, and the `simulate_*` functions
+default to `Rodas5P()` and call `solve`. See the phase 3 notes: the original
+sketch of this plan assumed MTK alone would do it, and that turned out to be
+wrong.
 
 Status: phases 1-4 done. Migration complete. Julia 1.12, extensions available.
 
