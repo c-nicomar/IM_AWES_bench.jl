@@ -7,6 +7,30 @@ using Test
 using IM_AWES_bench
 
 # ============================================================
+# Progress reporting
+# ============================================================
+#
+# Several steps here run for minutes with nothing on screen: precompiling
+# ModelingToolkit and the extension, mtkcompile on the two systems, and
+# each `probe` spawning a fresh julia. Without these lines a healthy run is
+# indistinguishable from a hang. @testset only reports a testset once it has
+# finished, which is too late to be reassuring.
+
+const TEST_START = time()
+
+"""
+    progress(msg)
+
+Print a timestamped progress line and flush it immediately, so it shows up while
+the step is still running rather than when the output buffer happens to drain.
+"""
+function progress(msg)
+    printstyled("  [", lpad(round(Int, time() - TEST_START), 4), "s] ", msg, "\n"; color = :cyan)
+    flush(stdout)
+    return nothing
+end
+
+# ============================================================
 # Subprocess helper
 # ============================================================
 #
@@ -54,6 +78,8 @@ end
 
 @testset "IM_AWES_bench" begin
 
+    progress("starting IM_AWES_bench test suite")
+
     # ========================================================
     # Hybrid simulators: the MTK-free fast path
     # ========================================================
@@ -72,6 +98,7 @@ end
 
         for (name, run_sim) in sims
             @testset "$name" begin
+                progress("hybrid simulator: $name")
                 res = run_sim()
                 @test length(res.t) >= expected
                 @test res.t[1] == 0.0
@@ -95,6 +122,7 @@ end
     # has quietly reacquired a hard dependency on ModelingToolkit.
 
     @testset "bare load pulls in no symbolic stack" begin
+        progress("extension check 1/4: bare load (spawns a fresh julia)")
         r = probe(PROBE_PRELUDE * """
             using IM_AWES_bench
             report("BARE")
@@ -112,6 +140,7 @@ end
     # functions default to Rodas5P() and call solve, so OrdinaryDiffEq cannot be
     # dropped from the trigger list. This pins the user-facing contract.
     @testset "ModelingToolkit alone does not trigger the extension" begin
+        progress("extension check 2/4: MTK alone (fresh julia, loads MTK)")
         r = probe(PROBE_PRELUDE * """
             using IM_AWES_bench
             using ModelingToolkit
@@ -125,6 +154,7 @@ end
     end
 
     @testset "both triggers load the extension" begin
+        progress("extension check 3/4: both triggers (fresh julia, loads MTK + OrdinaryDiffEq)")
         r = probe(PROBE_PRELUDE * """
             using IM_AWES_bench
             using ModelingToolkit
@@ -143,6 +173,7 @@ end
     # extension cannot create a binding in its parent. It must still resolve to
     # the same function object once the extension has added its method.
     @testset "build_scalar_im_model alias" begin
+        progress("extension check 4/4: build_scalar_im_model alias (fresh julia)")
         r = probe("""
             using IM_AWES_bench, ModelingToolkit, OrdinaryDiffEq
             println("ALIAS ", build_scalar_im_model === build_scalar_im_system,
@@ -156,15 +187,19 @@ end
     # MTK path
     # ========================================================
     #
-    # Short runs, but they exercise build -> structural_simplify -> solve, which
+    # Short runs, but they exercise build -> mtkcompile -> solve, which
     # is the only coverage that would catch a scoping mistake in an equation
     # builder inside the extension (e.g. `D` no longer in scope).
 
     @testset "MTK path" begin
+        progress("loading ModelingToolkit + OrdinaryDiffEq into this session")
+        progress("  (first run after a change precompiles the extension: minutes, not seconds)")
         @eval using ModelingToolkit
         @eval using OrdinaryDiffEq
+        progress("MTK loaded")
 
         @testset "simulate_scalar_im" begin
+            progress("scalar system: build -> mtkcompile -> solve")
             tspan = (0.0, 0.05)
             sol, sys = simulate_scalar_im(; tspan)
             @test sys !== nothing
@@ -179,6 +214,7 @@ end
         # equations were added to build_rotor_flux_observer_eqs for the FOC
         # system and never back-ported here. Nothing exercised it, so it rotted.
         @testset "simulate_scalar_im with observer" begin
+            progress("scalar system with flux observer, 2 s of simulated time")
             sol, sys = simulate_scalar_im(; tspan = (0.0, 2.0), include_observer = true)
             @test length(sol.t) > 1
             @test all(u -> all(isfinite, u), sol.u)
@@ -195,6 +231,7 @@ end
         end
 
         @testset "simulate_foc_current_im" begin
+            progress("FOC current system: build -> mtkcompile -> solve")
             tspan = (0.0, 0.05)
             sol, sys = simulate_foc_current_im(; tspan)
             @test sys !== nothing
@@ -209,6 +246,7 @@ end
         # zero-flux initial condition, which is invisible to a finite-difference
         # Jacobian and only shows up through MTK's symbolic one.
         @testset "analytical Jacobian is finite at zero flux" begin
+            progress("analytical Jacobian at zero flux")
             sys = build_foc_current_im_system()
             prob = ODEProblem(sys, [], (0.0, 0.05); jac = true)
             n = length(prob.u0)
@@ -221,6 +259,7 @@ end
         # The controller must actually track its references, not merely produce
         # finite numbers. isd steps to 10 A at t = 1, isq to +15/-15/0 A.
         @testset "FOC current tracking" begin
+            progress("FOC reference tracking, 12 s of simulated time")
             sol, sys = simulate_foc_current_im(; tspan = (0.0, 12.0))
             for (t, isd_ref, isq_ref) in
                 [(2.5, 10.0, 0.0), (5.0, 10.0, 15.0), (8.0, 10.0, -15.0), (11.0, 10.0, 0.0)]
@@ -231,5 +270,7 @@ end
             @test sol(11.0, idxs = sys.flux_r_mod_obs) ≈ 0.04084 * 10 atol = 0.01
         end
     end
+
+    progress("test suite finished")
 end
 nothing

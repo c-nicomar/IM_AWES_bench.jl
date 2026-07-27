@@ -282,8 +282,8 @@ function build_scalar_im_system(;
         observer_eqs,
     )
 
-    @named sys = ODESystem(eqs, t)
-    return structural_simplify(sys)
+    @named sys = System(eqs, t)
+    return mtkcompile(sys)
 end
 
 
