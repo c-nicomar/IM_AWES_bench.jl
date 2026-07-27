@@ -184,7 +184,7 @@ p_plot = plotx(
     fig = "FOC current loop test",
     title = "FOC inner current loop test",
     yzoom = 1.20,
-    legendsize = 8,
+    legendsize = 14,
 )
 
 display(p_plot)
