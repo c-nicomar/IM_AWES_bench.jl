@@ -5,7 +5,7 @@ simulators are the fast path and must not pay for ModelingToolkit. The
 scalar/FOC-current MTK builders become available when the user also loads
 ModelingToolkit.
 
-Status: phase 1 done, phases 2-4 open. Julia 1.12, extensions available.
+Status: phases 1-2 done, phases 3-4 open. Julia 1.12, extensions available.
 
 ## Verified facts
 
@@ -30,8 +30,10 @@ Established by inspecting the tree; re-check if the code moves under you.
 - `ModelingToolkitStandardLibrary`, `DifferentialEquations`, `MAT`,
   `DataInterpolations`, `CSV`, and `DataFrames` are declared in `Project.toml`
   and referenced nowhere in `src/`.
-- `test/runtests.jl` asserts `1+1 == 2` and nothing else. There is no coverage
-  that would catch a bad move.
+- ~~`test/runtests.jl` asserts `1+1 == 2` and nothing else.~~ Replaced in
+  phase 2; see below.
+- `Manifest.toml` is gitignored (`.gitignore:9`), not tracked — so dependency
+  changes leave no diff to review and every clone resolves fresh.
 
 ## Phase 1 — drop dead dependencies
 
@@ -58,16 +60,43 @@ and resolve footprint, not a faster `using`.
 
 Do this before moving files, so the move has something to fail against.
 
-- [ ] In `test/runtests.jl`, add a testset that loads `IM_AWES_bench` alone and
-      asserts the four hybrid simulators are callable.
-- [ ] Add a testset asserting the MTK builders are *not* yet available, then
-      `using ModelingToolkit`, then asserting they are. This must run in a fresh
-      process — extension loading is not reversible within a session, so it needs
-      its own `julia -e` subprocess rather than a plain testset.
-- [ ] Add a smoke test: one short `simulate_scalar_im` run and one
-      `simulate_foc_current_im` run, asserting finite output of the expected
-      length. This is the only thing that will catch a scoping mistake in the
-      moved equation builders.
+- [x] In `test/runtests.jl`, add a testset that loads `IM_AWES_bench` alone and
+      asserts the four hybrid simulators are callable. All four run at
+      `t_end = 0.05`, `Ts = 100e-6`, checked for sample count, monotonic time,
+      finite `speed_rpm`/`torque`, and matching array lengths.
+- [x] Add a testset asserting the MTK builders are *not* yet available, then
+      `using ModelingToolkit`, then asserting they are. Implemented via a
+      `probe()` helper that runs each check in a fresh `julia -e` subprocess.
+      The signal is *method count*, not `isdefined` — after phase 3 the stub
+      declarations mean the names exist with zero methods until MTK loads.
+      Gated on `EXT_MIGRATED`, auto-detected from `[extensions]` in the root
+      `Project.toml`, so the assertions turn real on their own after phase 3
+      with no constant to flip. Currently 3 `@test_broken`.
+- [x] Add a smoke test: one short `simulate_scalar_im` run and one
+      `simulate_foc_current_im` run. `simulate_scalar_im` passes.
+      `simulate_foc_current_im` does **not** — see below.
+- [x] Add `ModelingToolkit` and `TOML` to `test/Project.toml`.
+
+Result: 49 pass, 5 broken, 0 fail. Runtime ~43 s, dominated by the two MTK
+smoke tests (22 s for the scalar build/simplify/solve).
+
+### Found while writing the tests: `simulate_foc_current_im` is broken
+
+Pre-existing, and unrelated to this migration. The solve aborts at `t = 0` with
+retcode `Unstable` — "dt was forced below floating point epsilon". Reproduced
+with default arguments, with the exact arguments from
+`scripts/run_foc_current_steps.jl`, and at `tspan` of 0.05, 0.5 and 2.0.
+`scripts/run_foc_current_steps.jl` is therefore currently broken too.
+
+The system builds and `structural_simplify` succeeds; only the solve fails,
+which points at initial conditions or an algebraic loop in
+`src/systems/foc_current_im_system.jl` rather than anything dependency-related.
+That file was last touched in `af5a65c`, well before this work.
+
+Marked `@test_broken` so the suite stays usable as a phase-3 tripwire. Worth
+fixing before phase 3 if possible — until it is, half the MTK smoke coverage is
+inert, and a scoping mistake in the moved FOC equation builders would not be
+caught.
 
 ## Phase 3 — the extension move
 

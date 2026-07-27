@@ -4,8 +4,188 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using Test
+using TOML
 using IM_AWES_bench
 
-@testset "Basic arithmetic" begin
-    @test 1+1 == 2
+# ============================================================
+# Migration state
+# ============================================================
+#
+# Phase 3 of Plan.md moves the MTK-dependent code into a package extension.
+# Until that lands, the load-isolation assertions below cannot hold: the main
+# module still does `using ModelingToolkit` at top level. Rather than hard-code
+# the state, detect it from the root Project.toml so these tests start asserting
+# the real thing the moment the extension exists — no constant to remember to
+# flip.
+
+const ROOT_PROJECT = TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
+const EXT_MIGRATED = haskey(ROOT_PROJECT, "extensions")
+
+# ============================================================
+# Subprocess helper
+# ============================================================
+#
+# Extension loading is one-way within a session: once ModelingToolkit is loaded
+# the extension stays loaded, so "absent before, present after" cannot be tested
+# with two testsets in one process. Each probe runs in a fresh julia.
+
+"""
+    probe(code) -> (; ok, out, err)
+
+Run `code` in a fresh julia process on the test environment. Returns the
+process's stdout, stderr, and whether it exited cleanly.
+"""
+function probe(code::AbstractString)
+    out = IOBuffer()
+    err = IOBuffer()
+    cmd = `$(Base.julia_cmd()) --startup-file=no --project=$(@__DIR__) -e $code`
+    p = run(pipeline(ignorestatus(cmd); stdout = out, stderr = err))
+    return (; ok = p.exitcode == 0, out = String(take!(out)), err = String(take!(err)))
+end
+
+# Printed by every probe below. Method count is the right signal rather than
+# `isdefined`: after phase 3 the stub declarations mean the names exist with
+# zero methods until ModelingToolkit is loaded.
+const PROBE_PRELUDE = """
+    mtk_loaded() = any(k -> k.name == "ModelingToolkit", keys(Base.loaded_modules))
+    nmeth(f) = length(methods(f))
+    report(tag) = println(
+        tag, " mtk=", mtk_loaded(),
+        " scalar=", nmeth(IM_AWES_bench.build_scalar_im_system),
+        " foc=", nmeth(IM_AWES_bench.build_foc_current_im_system),
+    )
+"""
+
+function parse_report(out, tag)
+    line = only(filter(l -> startswith(l, tag), split(strip(out), '\n')))
+    fields = Dict(split(kv, '=')[1] => split(kv, '=')[2] for kv in split(line)[2:end])
+    return (;
+        mtk = parse(Bool, fields["mtk"]),
+        scalar = parse(Int, fields["scalar"]),
+        foc = parse(Int, fields["foc"]),
+    )
+end
+
+@testset "IM_AWES_bench" begin
+
+    # ========================================================
+    # Hybrid simulators: the MTK-free fast path
+    # ========================================================
+
+    @testset "hybrid simulators run" begin
+        t_end = 0.05
+        Ts = 100e-6
+        expected = round(Int, t_end / Ts)
+
+        sims = [
+            "current" => () -> simulate_foc_current_hybrid(; t_end, Ts),
+            "torque_f1" => () -> simulate_foc_torque_f1_hybrid(; t_end, Ts),
+            "speed_f1" => () -> simulate_foc_speed_f1_hybrid(; t_end, Ts),
+            "speed_mtpa" => () -> simulate_foc_speed_mtpa_hybrid(; t_end, Ts),
+        ]
+
+        for (name, run_sim) in sims
+            @testset "$name" begin
+                res = run_sim()
+                @test length(res.t) >= expected
+                @test res.t[1] == 0.0
+                @test res.t[end] ≈ t_end atol = 2Ts
+                @test issorted(res.t)
+                @test all(isfinite, res.t)
+                @test all(isfinite, res.speed_rpm)
+                @test all(isfinite, res.torque)
+                @test length(res.speed_rpm) == length(res.t)
+                @test length(res.torque) == length(res.t)
+            end
+        end
+    end
+
+    # ========================================================
+    # Load isolation
+    # ========================================================
+    #
+    # Before phase 3 these are @test_broken: `using IM_AWES_bench` still drags
+    # in ModelingToolkit and the builders already carry their methods. After
+    # phase 3 EXT_MIGRATED flips and they assert the real contract.
+
+    @testset "load isolation" begin
+        r = probe(PROBE_PRELUDE * """
+            using IM_AWES_bench
+            report("BARE")
+        """)
+        @test r.ok
+        bare = parse_report(r.out, "BARE")
+
+        if EXT_MIGRATED
+            @test !bare.mtk
+            @test bare.scalar == 0
+            @test bare.foc == 0
+        else
+            @test_broken !bare.mtk
+            @test_broken bare.scalar == 0
+            @test_broken bare.foc == 0
+        end
+    end
+
+    @testset "builders available with ModelingToolkit" begin
+        r = probe(PROBE_PRELUDE * """
+            using IM_AWES_bench
+            using ModelingToolkit
+            report("WITHMTK")
+        """)
+        @test r.ok
+        withmtk = parse_report(r.out, "WITHMTK")
+
+        # Holds both before and after phase 3 — this is the invariant the
+        # migration must not break.
+        @test withmtk.mtk
+        @test withmtk.scalar >= 1
+        @test withmtk.foc >= 1
+    end
+
+    # ========================================================
+    # MTK path smoke tests
+    # ========================================================
+    #
+    # Short runs, but they exercise build -> structural_simplify -> solve. This
+    # is the only coverage that would catch a scoping mistake in an equation
+    # builder moved into the extension (e.g. `D` no longer in scope).
+
+    @testset "MTK smoke tests" begin
+        @eval using ModelingToolkit
+
+        @testset "simulate_scalar_im" begin
+            tspan = (0.0, 0.05)
+            sol, sys = simulate_scalar_im(; tspan)
+            @test sys !== nothing
+            @test length(sol.t) > 1
+            @test sol.t[1] == tspan[1]
+            @test sol.t[end] ≈ tspan[2]
+            @test all(u -> all(isfinite, u), sol.u)
+        end
+
+        # PRE-EXISTING FAILURE — not caused by the extension migration.
+        #
+        # simulate_foc_current_im aborts at t = 0 with retcode Unstable:
+        # "dt was forced below floating point epsilon". It fails identically
+        # with the default arguments, with the exact arguments used by
+        # scripts/run_foc_current_steps.jl, and at every tspan tried
+        # (0.05, 0.5, 2.0), so that script is currently broken too. The system
+        # builds and structural_simplify succeeds; the solve is what fails,
+        # which points at initial conditions or an algebraic loop in
+        # src/systems/foc_current_im_system.jl rather than at anything
+        # dependency-related.
+        #
+        # Left as @test_broken so the suite stays usable as a phase-3 tripwire.
+        # These flip to @test once the model is fixed.
+        @testset "simulate_foc_current_im" begin
+            tspan = (0.0, 0.05)
+            sol, sys = simulate_foc_current_im(; tspan)
+            @test sys !== nothing
+            @test sol.t[1] == tspan[1]
+            @test all(u -> all(isfinite, u), sol.u)
+            @test_broken length(sol.t) > 1
+            @test_broken sol.t[end] ≈ tspan[2]
+        end
+    end
 end
