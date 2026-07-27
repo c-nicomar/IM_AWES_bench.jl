@@ -17,8 +17,6 @@ The current focus is the second path: a discrete FOC control structure with spee
 IM_AWES_bench_jl/
 ├── docs/
 │   └── README_IM_AWES_bench_jl.md
-├── examples/
-│   └── run_scalar_im.jl
 ├── profiles/
 │   └── delta_kite_13_ms_profiles.csv
 ├── results/
@@ -35,10 +33,14 @@ IM_AWES_bench_jl/
 ├── scripts/
 │   ├── run_foc_current_hybrid_steps.jl
 │   ├── run_foc_current_steps.jl
+│   ├── run_foc_speed_f1_160kw.jl
 │   ├── run_foc_speed_f1_awes_profile.jl
+│   ├── run_foc_speed_f1_awes_profile_efficiency.jl
 │   ├── run_foc_speed_f1_ramp_load_estimator.jl
 │   ├── run_foc_speed_f1_ramp_load_steps.jl
+│   ├── run_foc_speed_mtpa_awes_profile.jl
 │   ├── run_foc_torque_f1_steps.jl
+│   ├── run_scalar_im.jl
 │   ├── run_scalar_frequency_steps.jl
 │   └── run_scalar_frequency_steps_load_steps.jl
 └── src/
@@ -237,7 +239,7 @@ src/systems/scalar_im_system.jl
 ```text
 scripts/run_scalar_frequency_steps.jl
 scripts/run_scalar_frequency_steps_load_steps.jl
-examples/run_scalar_im.jl
+scripts/run_scalar_im.jl
 ```
 
 ### Concept
@@ -734,6 +736,7 @@ jl
 Then run simulations from the Julia prompt with `include()`:
 
 ```julia
+include("scripts/run_scalar_im.jl")
 include("scripts/run_foc_current_hybrid_steps.jl")
 include("scripts/run_foc_torque_f1_steps.jl")
 include("scripts/run_foc_speed_f1_ramp_load_steps.jl")
