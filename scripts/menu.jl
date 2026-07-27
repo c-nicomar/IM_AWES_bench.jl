@@ -6,10 +6,9 @@ end
 using REPL.TerminalMenus: RadioMenu, request
 
 # Menu of the hybrid FOC examples. Only scripts that run on the hand-written
-# plant/controller path are listed; the ModelingToolkit-based scripts
-# (run_scalar_im.jl, run_scalar_frequency_steps.jl,
-# run_scalar_frequency_steps_load_steps.jl and run_foc_current_steps.jl) are
-# left out on purpose, because they pull in the MTK/OrdinaryDiffEq extension.
+# plant/controller path are listed; the ModelingToolkit-based scripts are left
+# out on purpose, because they pull in the MTK/OrdinaryDiffEq extension. They
+# live in menu2.jl.
 const EXAMPLES = [
     "run_foc_current_hybrid_steps.jl",       # inner current loop, id/iq steps
     "run_foc_torque_f1_steps.jl",            # outer torque loop, constant flux
