@@ -127,10 +127,33 @@ end
         end
     end
 
+    # The extension triggers on ModelingToolkit AND OrdinaryDiffEq — Julia loads
+    # an extension only once every package in its trigger list is present. MTK
+    # alone is not enough, because the simulate_* functions default to
+    # Rodas5P() and call solve.
+    @testset "ModelingToolkit alone does not trigger the extension" begin
+        r = probe(PROBE_PRELUDE * """
+            using IM_AWES_bench
+            using ModelingToolkit
+            report("MTKONLY")
+        """)
+        @test r.ok
+        mtkonly = parse_report(r.out, "MTKONLY")
+        @test mtkonly.mtk
+        if EXT_MIGRATED
+            @test mtkonly.scalar == 0
+            @test mtkonly.foc == 0
+        else
+            @test_broken mtkonly.scalar == 0
+            @test_broken mtkonly.foc == 0
+        end
+    end
+
     @testset "builders available with ModelingToolkit" begin
         r = probe(PROBE_PRELUDE * """
             using IM_AWES_bench
             using ModelingToolkit
+            using OrdinaryDiffEq
             report("WITHMTK")
         """)
         @test r.ok
@@ -153,6 +176,7 @@ end
 
     @testset "MTK smoke tests" begin
         @eval using ModelingToolkit
+        @eval using OrdinaryDiffEq
 
         @testset "simulate_scalar_im" begin
             tspan = (0.0, 0.05)

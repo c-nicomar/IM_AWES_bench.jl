@@ -109,7 +109,7 @@ include("simulators/hybrid_foc_speed_f1_simulator.jl")
 The most relevant exported simulation functions are:
 
 ```julia
-simulate_scalar_im(...)
+simulate_scalar_im(...)   # needs `using ModelingToolkit, OrdinaryDiffEq` (package extension)
 simulate_foc_current_hybrid(...)
 simulate_foc_torque_f1_hybrid(...)
 simulate_foc_speed_f1_hybrid(...)

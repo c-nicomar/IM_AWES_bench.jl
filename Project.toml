@@ -7,8 +7,15 @@ authors = ["Carolina Nicolás <canicola@ing.uc3m.es> and contributors"]
 projects = ["examples", "scripts", "test"]
 
 [deps]
+
+[weakdeps]
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 
+[extensions]
+IM_AWES_benchMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]
+
 [compat]
+ModelingToolkit = "11"
+OrdinaryDiffEq = "7"
 julia = "1.12"

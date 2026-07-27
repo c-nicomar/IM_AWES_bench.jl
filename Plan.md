@@ -5,7 +5,7 @@ simulators are the fast path and must not pay for ModelingToolkit. The
 scalar/FOC-current MTK builders become available when the user also loads
 ModelingToolkit.
 
-Status: phases 1-2 done, phases 3-4 open. Julia 1.12, extensions available.
+Status: phases 1-4 done. Migration complete. Julia 1.12, extensions available.
 
 ## Verified facts
 
@@ -152,51 +152,85 @@ testset added.
 Files to move into `ext/IM_AWES_benchMTKExt.jl` (or an `ext/` directory with the
 extension including them):
 
-- [ ] `src/plants/induction_machine_alpha_beta.jl`
-- [ ] `src/controls/scalar_vf_control.jl`
-- [ ] `src/controls/FOC/current_controller.jl` — the continuous one only, *not*
+- [x] `src/plants/induction_machine_alpha_beta.jl`
+- [x] `src/controls/scalar_vf_control.jl`
+- [x] `src/controls/FOC/current_controller.jl` — the continuous one only, *not*
       `current_controller_discrete.jl`
-- [ ] `src/estimators/rotor_flux_observer.jl` — continuous only, not the
+- [x] `src/estimators/rotor_flux_observer.jl` — continuous only, not the
       `_discrete` variant
-- [ ] `src/profiles/frequency_profiles.jl` — moves wholesale; `*_tstops` is pure
+- [x] `src/profiles/frequency_profiles.jl` — moves wholesale; `*_tstops` is pure
       numeric but is only called from `src/systems/` and is not exported
-- [ ] `src/profiles/load_profiles.jl` — same
-- [ ] `src/systems/scalar_im_system.jl`
-- [ ] `src/systems/foc_current_im_system.jl`
+- [x] `src/profiles/load_profiles.jl` — same
+- [x] `src/systems/scalar_im_system.jl`
+- [x] `src/systems/foc_current_im_system.jl`
 
 Manifest changes:
 
-- [ ] Move `ModelingToolkit` and `OrdinaryDiffEq` from `[deps]` to `[weakdeps]`.
+- [x] Move `ModelingToolkit` and `OrdinaryDiffEq` from `[deps]` to `[weakdeps]`.
       `OrdinaryDiffEq` matters: leave it in `[deps]` and the solver stack still
       loads on every `using`, which defeats the point.
-- [ ] Add `[extensions]` with `IM_AWES_benchMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]`.
-- [ ] Keep both under `[compat]`.
+- [x] Add `[extensions]` with `IM_AWES_benchMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]`.
+- [x] Keep both under `[compat]`.
 
 Stub declarations — an extension can only add methods to functions the parent
 already declares, so without these `using ModelingToolkit` yields an
 `UndefVarError` rather than the builders:
 
-- [ ] In `src/IM_AWES_bench.jl`, declare `function build_scalar_im_system end`,
+- [x] In `src/IM_AWES_bench.jl`, declare `function build_scalar_im_system end`,
       `function simulate_scalar_im end`, `function build_foc_current_im_system end`,
       `function simulate_foc_current_im end`.
-- [ ] Keep the existing `export` lines for those four in the main module.
-- [ ] Decide whether the six equation builders need stubs too. They are not
-      currently exported and are only called from within what becomes the
-      extension, so probably not — but check before deleting the includes.
-- [ ] Delete `using ModelingToolkit` / `using OrdinaryDiffEq` and the include
+- [x] Keep the existing `export` lines for those four in the main module.
+- [x] Decide whether the six equation builders need stubs too. Answer: no.
+      They are unexported and every call site moved into the extension with
+      them, so they are plain internal functions of the extension module.
+- [x] Delete `using ModelingToolkit` / `using OrdinaryDiffEq` and the include
       lines for moved files from `src/IM_AWES_bench.jl`.
-- [ ] Add `using ModelingToolkit: t_nounits as t, D_nounits as D` inside the
+- [x] Add `using ModelingToolkit: t_nounits as t, D_nounits as D` inside the
       extension — the moved builders depend on `D` being in scope.
+
+
+Layout: `ext/IM_AWES_benchMTKExt.jl` is the extension module and the eight moved
+files keep their original subdirectory structure underneath it
+(`ext/systems/`, `ext/profiles/`, ...). Moved with `git mv`, so history follows.
+
+Two things the original sketch missed, both found during the move:
+
+- **The extension triggers on ModelingToolkit AND OrdinaryDiffEq**, not MTK
+  alone. Julia loads an extension only when *every* package in its trigger list
+  is present, and the `simulate_*` functions default to `Rodas5P()` and call
+  `solve`, so OrdinaryDiffEq cannot be dropped from the list. The user-facing
+  incantation is therefore `using IM_AWES_bench, ModelingToolkit, OrdinaryDiffEq`
+  — not the `using ModelingToolkit` alone that was originally assumed. A test
+  pins this behaviour explicitly.
+- **`build_scalar_im_model` needed moving, not just stubbing.** It was a plain
+  binding (`build_scalar_im_model = build_scalar_im_system`) at the bottom of
+  `scalar_im_system.jl`, and it is exported. Same rule as the stubs: an
+  extension cannot create a binding in its parent, so the alias now lives in
+  `src/IM_AWES_bench.jl` as a `const` pointing at the stub. It picks up the
+  extension's method automatically.
 
 ## Phase 4 — verify
 
-- [ ] Phase 2 tests pass.
-- [ ] `@time using IM_AWES_bench` improved; fill in the table.
-- [ ] The scripts in `scripts/` that use only hybrid simulators still run
-      without loading MTK. Check with `haskey(Base.loaded_modules, ...)` or by
-      inspecting load time.
-- [ ] The scalar/FOC-current path still runs after `using ModelingToolkit`.
-- [ ] `docs/` mentions the MTK builders — update for the new load requirement.
+- [x] Phase 2 tests pass: **77 pass, 0 fail, 0 broken**. All three load-isolation
+      tripwires flipped from `@test_broken` to passing on their own, via the
+      `EXT_MIGRATED` auto-detection.
+- [x] `@time using IM_AWES_bench` improved — see the table. 5.67 s -> 0.0029 s.
+- [x] Scripts that use only hybrid simulators do not load MTK: verified that
+      `using IM_AWES_bench, CSV, DataFrames` under `--project=scripts` leaves
+      `ModelingToolkit` absent from `Base.loaded_modules`.
+- [x] The scalar/FOC-current path still runs with the extension loaded: builder
+      method count is 1 under `--project=examples`, and the full MTK smoke tests
+      pass.
+- [x] `docs/` updated for the new load requirement
+      (`README_IM_AWES_bench_updated.md`, `README_IM_AWES_bench_jl.md`).
+- [x] The four scripts that use the MTK path
+      (`examples/run_scalar_im.jl`, `scripts/run_scalar_frequency_steps.jl`,
+      `scripts/run_scalar_frequency_steps_load_steps.jl`,
+      `scripts/run_foc_current_steps.jl`) gained `using ModelingToolkit` and
+      `using OrdinaryDiffEq`, and both packages were added to
+      `scripts/Project.toml`, `examples/Project.toml` and `test/Project.toml`.
+      Not executed — they open plot windows — so this is verified by resolution
+      and imports, not by a full run.
 
 ## Load time
 
@@ -204,7 +238,15 @@ already declares, so without these `using ModelingToolkit` yields an
 | --- | --- |
 | baseline | 5.73 s, 10.60 M allocations, 738.7 MiB |
 | after phase 1 | 5.67 s, 10.54 M allocations, 737.6 MiB |
-| after phase 3 | |
+| after phase 3 | **0.0029 s, 12.29 k allocations, 1.0 MiB** |
+| after phase 3, `+ using ModelingToolkit, OrdinaryDiffEq` | 6.27 s |
+
+Phase 3 is where the win landed: a bare `using IM_AWES_bench` went from 5.67 s
+to 2.9 ms, and from 10.54 M allocations to 12.29 k — roughly a 2000x cut, since
+loading the package now touches nothing but plain Julia. Pulling the extension
+in costs 6.27 s, slightly more than the old unconditional load, which is the
+expected trade: the symbolic stack is not cheaper, it is just no longer
+mandatory.
 
 Phase 1 bought no load-time improvement, and in hindsight could not have: the
 six removed packages were declared in `[deps]` but never `using`'d, so they were
@@ -222,6 +264,8 @@ win therefore rests on phase 3.
 - ~~`examples/` was not inspected.~~ Resolved: `examples/run_scalar_im.jl:11`
   calls `simulate_scalar_im`, so it *does* use the MTK path and will need
   `using ModelingToolkit` added after phase 3. It is the only example.
-- Is the split worth keeping the two paths in one package at all, versus a
-  separate `IM_AWES_bench_MTK` package? The extension keeps one package and one
-  version, which is probably right, but worth a moment's thought before the move.
+- ~~Is the split worth a separate package?~~ Resolved by doing it: the
+  extension keeps one package and one version, and the load-time result makes
+  a second package unnecessary.
+- The `[compat]` bounds added for the weakdeps (`ModelingToolkit = "11"`,
+  `OrdinaryDiffEq = "7"`) match what is installed. Widen or tighten as needed.

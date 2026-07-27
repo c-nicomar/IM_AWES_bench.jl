@@ -306,8 +306,16 @@ This simulator supports:
 
 The top-level module exports the main simulation functions and reusable controller/observer types:
 
+The hybrid simulators and the discrete controller/observer types are available
+from a bare `using IM_AWES_bench`. The two ModelingToolkit system builders,
+`simulate_scalar_im` and `simulate_foc_current_im`, live in a package extension
+and need **both** ModelingToolkit and OrdinaryDiffEq loaded — Julia triggers an
+extension only once every package in its trigger list is present. Calling one
+without them raises a `MethodError` reporting zero methods.
+
 ```julia
-using IM_AWES_bench
+using IM_AWES_bench                   # hybrid simulators, discrete blocks
+using ModelingToolkit, OrdinaryDiffEq # + the MTK system builders
 
 simulate_scalar_im
 simulate_foc_current_im

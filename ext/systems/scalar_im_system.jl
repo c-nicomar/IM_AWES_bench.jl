@@ -287,8 +287,9 @@ function build_scalar_im_system(;
 end
 
 
-# Backward-compatible alias, so old scripts do not immediately break.
-build_scalar_im_model = build_scalar_im_system
+# The `build_scalar_im_model` alias lives in the main module now. An extension
+# cannot introduce a new binding into its parent's namespace, and the alias is
+# exported from there — see src/IM_AWES_bench.jl.
 
 
 """
