@@ -397,7 +397,3 @@ println("Cycle energy summary:")
 println("  Electrical energy generated at stator = ", E_elec_gen_stator_J / 1000, " kJ")
 println("  Mechanical energy absorbed by external load = ", E_mech_ext_abs_J / 1000, " kJ")
 println("  Total electrical cycle efficiency = ", 100 * eta_cycle_elec, " %")
-
-println()
-println("Press ENTER to close.")
-readline()
