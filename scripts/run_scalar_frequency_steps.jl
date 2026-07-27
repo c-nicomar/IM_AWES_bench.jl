@@ -4,7 +4,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using IM_AWES_bench
-using ControlPlots
+using MakieControlPlots
 using CSV
 using DataFrames
 
@@ -81,8 +81,7 @@ p_plot = plotx(
     fig = "Scalar frequency steps",
     title = "Scalar V/f control with stepped frequency reference",
     yzoom = 1.25,
-    legend_size = 9,
-    loc = "best",
+    legendsize = 9,
 )
 
 display(p_plot)

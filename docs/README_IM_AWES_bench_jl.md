@@ -722,20 +722,30 @@ Pload < 0  external torque extracts mechanical power from the shaft
 
 ## 17. Running simulations
 
-From the project root:
+The dedicated 160 kW induction-machine FOC F1 test is described in
+[`README_FOC_F1_160KW.md`](README_FOC_F1_160KW.md).
+
+From the project root, start Julia:
 
 ```bash
-julia --project=. scripts/run_foc_current_hybrid_steps.jl
-julia --project=. scripts/run_foc_torque_f1_steps.jl
-julia --project=. scripts/run_foc_speed_f1_ramp_load_steps.jl
-julia --project=. scripts/run_foc_speed_f1_ramp_load_estimator.jl
-julia --project=. scripts/run_foc_speed_f1_awes_profile.jl
+jl
+```
+
+Then run simulations from the Julia prompt with `include()`:
+
+```julia
+include("scripts/run_foc_current_hybrid_steps.jl")
+include("scripts/run_foc_torque_f1_steps.jl")
+include("scripts/run_foc_speed_f1_ramp_load_steps.jl")
+include("scripts/run_foc_speed_f1_ramp_load_estimator.jl")
+include("scripts/run_foc_speed_f1_awes_profile.jl")
+include("scripts/run_foc_speed_f1_160kw.jl")
 ```
 
 For the AWES profile case:
 
-```bash
-julia --project=. scripts/run_foc_speed_f1_awes_profile.jl
+```julia
+include("scripts/run_foc_speed_f1_awes_profile.jl")
 ```
 
 The result CSV is saved in:
@@ -779,8 +789,8 @@ saturation/debug signals
 
 ### Step 1: Validate current loop
 
-```bash
-julia --project=. scripts/run_foc_current_hybrid_steps.jl
+```julia
+include("scripts/run_foc_current_hybrid_steps.jl")
 ```
 
 Check:
@@ -794,8 +804,8 @@ negative iq gives negative torque
 
 ### Step 2: Validate torque loop
 
-```bash
-julia --project=. scripts/run_foc_torque_f1_steps.jl
+```julia
+include("scripts/run_foc_torque_f1_steps.jl")
 ```
 
 Check:
@@ -834,8 +844,8 @@ Check whether speed error improves when the load torque changes.
 
 ### Step 6: Run AWES profile
 
-```bash
-julia --project=. scripts/run_foc_speed_f1_awes_profile.jl
+```julia
+include("scripts/run_foc_speed_f1_awes_profile.jl")
 ```
 
 Check:
@@ -890,14 +900,6 @@ Set:
 
 ```julia
 TL_kalman_limit_positive = false
-```
-
-### OpenMP/plotting error on Windows
-
-Add before `using ControlPlots` in run scripts:
-
-```julia
-ENV["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 ```
 
 ---

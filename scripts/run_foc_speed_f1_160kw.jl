@@ -2,17 +2,18 @@ using Pkg
 
 # Run with:
 #
-#   julia --project=examples examples/run_foc_speed_f1_im_160kw_controlplots.jl
+#   julia --project=scripts scripts/run_foc_speed_f1_160kw.jl
 #
 # or from a Julia session opened at the repository root:
 #
-#   include("examples/run_foc_speed_f1_im_160kw_controlplots.jl")
+#   include("scripts/run_foc_speed_f1_160kw.jl")
 
-Pkg.activate(joinpath(@__DIR__))
-Pkg.instantiate()
+if Base.active_project() != joinpath(@__DIR__, "Project.toml")
+    Pkg.activate(joinpath(@__DIR__))
+end
 
 using IM_AWES_bench
-using ControlPlots
+using MakieControlPlots
 using Printf
 using Statistics
 
@@ -115,7 +116,7 @@ mkpath(output_dir)
 # ============================================================
 # Plot 1: speed and torque
 #
-# ControlPlots.plotx creates vertically aligned control channels.
+# MakieControlPlots.plotx creates vertically aligned control channels.
 # Each vector inside an argument is plotted in the same channel.
 # ============================================================
 
@@ -158,15 +159,12 @@ p_speed_torque = plotx(
 
     title = "160 kW im IM: speed and torque",
     fig = "im_160kw_speed_torque",
-    legend_size = 9,
-    loc = "best",
+    legendsize = 9,
 )
 
 display(p_speed_torque)
 
-ControlPlots.savefig(
-    joinpath(output_dir, "speed_and_torque.png"),
-)
+
 
 # ============================================================
 # Plot 2: dq currents, voltage utilization, and rotor flux
@@ -229,15 +227,10 @@ p_electrical = plotx(
 
     title = "160 kW im IM: electrical control variables",
     fig = "im_160kw_electrical",
-    legend_size = 9,
-    loc = "best",
+    legendsize = 9,
 )
 
 display(p_electrical)
-
-ControlPlots.savefig(
-    joinpath(output_dir, "currents_voltage_flux.png"),
-)
 
 # ============================================================
 # Plot 3: current magnitude, power, and saturation flags
@@ -308,15 +301,8 @@ p_limits_power = plotx(
 
     title = "160 kW im IM: limits and power",
     fig = "im_160kw_limits_power",
-    legend_size = 9,
-    loc = "best",
+    legendsize = 9,
 )
 
 display(p_limits_power)
 
-ControlPlots.savefig(
-    joinpath(output_dir, "current_power_saturation.png"),
-)
-
-println("Saved figures to:")
-println(output_dir)
