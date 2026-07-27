@@ -164,28 +164,41 @@ end
             @test all(u -> all(isfinite, u), sol.u)
         end
 
-        # PRE-EXISTING FAILURE — not caused by the extension migration.
-        #
-        # simulate_foc_current_im aborts at t = 0 with retcode Unstable:
-        # "dt was forced below floating point epsilon". It fails identically
-        # with the default arguments, with the exact arguments used by
-        # scripts/run_foc_current_steps.jl, and at every tspan tried
-        # (0.05, 0.5, 2.0), so that script is currently broken too. The system
-        # builds and structural_simplify succeeds; the solve is what fails,
-        # which points at initial conditions or an algebraic loop in
-        # src/systems/foc_current_im_system.jl rather than at anything
-        # dependency-related.
-        #
-        # Left as @test_broken so the suite stays usable as a phase-3 tripwire.
-        # These flip to @test once the model is fixed.
         @testset "simulate_foc_current_im" begin
             tspan = (0.0, 0.05)
             sol, sys = simulate_foc_current_im(; tspan)
             @test sys !== nothing
+            @test length(sol.t) > 1
             @test sol.t[1] == tspan[1]
+            @test sol.t[end] ≈ tspan[2]
             @test all(u -> all(isfinite, u), sol.u)
-            @test_broken length(sol.t) > 1
-            @test_broken sol.t[end] ≈ tspan[2]
+        end
+
+        # Regression guard for the zero-flux NaN in the analytical Jacobian.
+        # sqrt(λrα^2 + λrβ^2) without the epsilon differentiates to 0/0 at the
+        # zero-flux initial condition, which is invisible to a finite-difference
+        # Jacobian and only shows up through MTK's symbolic one.
+        @testset "analytical Jacobian is finite at zero flux" begin
+            sys = build_foc_current_im_system()
+            prob = ODEProblem(sys, [], (0.0, 0.05); jac = true)
+            n = length(prob.u0)
+            J = zeros(n, n)
+            prob.f.jac(J, prob.u0, prob.p, 0.0)
+            @test !any(isnan, J)
+            @test !any(isinf, J)
+        end
+
+        # The controller must actually track its references, not merely produce
+        # finite numbers. isd steps to 10 A at t = 1, isq to +15/-15/0 A.
+        @testset "FOC current tracking" begin
+            sol, sys = simulate_foc_current_im(; tspan = (0.0, 12.0))
+            for (t, isd_ref, isq_ref) in
+                [(2.5, 10.0, 0.0), (5.0, 10.0, 15.0), (8.0, 10.0, -15.0), (11.0, 10.0, 0.0)]
+                @test sol(t, idxs = sys.isd_e_obs) ≈ isd_ref atol = 0.1
+                @test sol(t, idxs = sys.isq_e_obs) ≈ isq_ref atol = 0.1
+            end
+            # Rotor flux magnitude settles at Lm * isd.
+            @test sol(11.0, idxs = sys.flux_r_mod_obs) ≈ 0.04084 * 10 atol = 0.01
         end
     end
 end
