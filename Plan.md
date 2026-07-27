@@ -7,9 +7,21 @@ ModelingToolkit.
 
 Status: phases 1-4 done. Migration complete. Julia 1.12, extensions available.
 
+Since the migration landed, five commits from `main` were rebased on top of it
+(160 kW machine support, `CLAUDE.md`, removal of the press-ENTER blocks, and the
+`examples/` -> `scripts/` move). Paths below are current as of that rebase; the
+notes flag where `main` moved something after the fact.
+
 ## Verified facts
 
 Established by inspecting the tree; re-check if the code moves under you.
+
+- `examples/` no longer exists. `main` deleted it and moved its one script to
+  `scripts/run_scalar_im.jl`; the workspace is now
+  `projects = ["scripts", "test"]`. Anywhere this document says
+  `examples/run_scalar_im.jl` or `--project=examples`, read `scripts/`.
+- `src/simulators/hybrid_foc_speed_f1_160kw_simulator.jl` arrived from `main`
+  after the split and is MTK-free, so it sits correctly on the fast path.
 
 - The four `simulate_*_hybrid` functions in `src/simulators/` contain no MTK
   tokens and call none of the `build_*_eqs`, `build_*_system`, or `*_tstops`
@@ -49,12 +61,13 @@ and resolve footprint, not a faster `using`.
       `DataInterpolations`, `CSV`, `DataFrames`, `ModelingToolkitStandardLibrary`.
       Root project is now `ModelingToolkit` + `OrdinaryDiffEq` only.
 - [x] Leave `CSV`/`DataFrames` in `scripts/Project.toml` — the scripts do use them.
-      `examples/Project.toml` already declared them too.
+      `examples/Project.toml` already declared them too. (`examples/` has since
+      been deleted by `main`; only `scripts/Project.toml` remains.)
 - [x] `Pkg.resolve()`, then confirm `using IM_AWES_bench` still works. The four
       unused packages left `Manifest.toml` entirely; `CSV`/`DataFrames` remain,
       correctly, as workspace members still require them.
 - [x] Confirm the workspace still resolves: `using CSV, DataFrames, IM_AWES_bench`
-      succeeds under both `--project=scripts` and `--project=examples`.
+      succeeds under `--project=scripts` (and, at the time, `--project=examples`).
       `test/runtests.jl` passes. Note that no script was actually *run* — the
       plotting scripts open a window, so this checks resolution, not execution.
 - [x] Record `@time using IM_AWES_bench` before and after, in the table below.
@@ -219,16 +232,16 @@ Two things the original sketch missed, both found during the move:
       `using IM_AWES_bench, CSV, DataFrames` under `--project=scripts` leaves
       `ModelingToolkit` absent from `Base.loaded_modules`.
 - [x] The scalar/FOC-current path still runs with the extension loaded: builder
-      method count is 1 under `--project=examples`, and the full MTK smoke tests
-      pass.
+      method count is 1 under the script environment, and the full MTK smoke
+      tests pass.
 - [x] `docs/` updated for the new load requirement
       (`README_IM_AWES_bench_updated.md`, `README_IM_AWES_bench_jl.md`).
 - [x] The four scripts that use the MTK path
-      (`examples/run_scalar_im.jl`, `scripts/run_scalar_frequency_steps.jl`,
-      `scripts/run_scalar_frequency_steps_load_steps.jl`,
-      `scripts/run_foc_current_steps.jl`) gained `using ModelingToolkit` and
+      (now all under `scripts/`: `run_scalar_im.jl`,
+      `run_scalar_frequency_steps.jl`, `run_scalar_frequency_steps_load_steps.jl`,
+      `run_foc_current_steps.jl`) gained `using ModelingToolkit` and
       `using OrdinaryDiffEq`, and both packages were added to
-      `scripts/Project.toml`, `examples/Project.toml` and `test/Project.toml`.
+      `scripts/Project.toml` and `test/Project.toml`.
       Not executed — they open plot windows — so this is verified by resolution
       and imports, not by a full run.
 
@@ -280,9 +293,10 @@ win therefore rests on phase 3.
 - Does anything outside this repo depend on the MTK builders being available
   from a bare `using IM_AWES_bench`? If so this is a breaking change and wants a
   version bump beyond `1.0.0-DEV`.
-- ~~`examples/` was not inspected.~~ Resolved: `examples/run_scalar_im.jl:11`
-  calls `simulate_scalar_im`, so it *does* use the MTK path and will need
-  `using ModelingToolkit` added after phase 3. It is the only example.
+- ~~`examples/` was not inspected.~~ Resolved, then made moot: that script
+  calls `simulate_scalar_im`, so it does use the MTK path and carries both
+  `using` lines. `main` has since moved it to `scripts/run_scalar_im.jl` and
+  deleted `examples/` entirely.
 - ~~Is the split worth a separate package?~~ Resolved by doing it: the
   extension keeps one package and one version, and the load-time result makes
   a second package unnecessary.
