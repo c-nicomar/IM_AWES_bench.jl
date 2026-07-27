@@ -180,7 +180,18 @@ end
                     " ", length(methods(build_scalar_im_model)))
         """)
         @test r.ok
-        @test occursin("ALIAS true 1", r.out)
+
+        # Assert the two halves of the contract separately rather than matching
+        # a fixed string: the alias must be the *same function object*, and the
+        # extension must have supplied at least one method for it. Pinning an
+        # exact method count would fail the day someone adds a legitimate
+        # overload, which would not break the alias at all.
+        m = match(r"^ALIAS (\w+) (\d+)$"m, r.out)
+        @test m !== nothing
+        if m !== nothing
+            @test m[1] == "true"
+            @test parse(Int, m[2]) >= 1
+        end
     end
 
     # ========================================================
