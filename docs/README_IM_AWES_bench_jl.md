@@ -747,8 +747,8 @@ include("scripts/run_foc_speed_f1_160kw.jl")
 
 For the AWES profile case:
 
-```bash
-julia --project=. scripts/run_foc_speed_f1_awes_profile.jl
+```julia
+include("scripts/run_foc_speed_f1_awes_profile.jl")
 ```
 
 The result CSV is saved in:
@@ -792,8 +792,8 @@ saturation/debug signals
 
 ### Step 1: Validate current loop
 
-```bash
-julia --project=. scripts/run_foc_current_hybrid_steps.jl
+```julia
+include("scripts/run_foc_current_hybrid_steps.jl")
 ```
 
 Check:
@@ -807,8 +807,8 @@ negative iq gives negative torque
 
 ### Step 2: Validate torque loop
 
-```bash
-julia --project=. scripts/run_foc_torque_f1_steps.jl
+```julia
+include("scripts/run_foc_torque_f1_steps.jl")
 ```
 
 Check:
@@ -847,8 +847,8 @@ Check whether speed error improves when the load torque changes.
 
 ### Step 6: Run AWES profile
 
-```bash
-julia --project=. scripts/run_foc_speed_f1_awes_profile.jl
+```julia
+include("scripts/run_foc_speed_f1_awes_profile.jl")
 ```
 
 Check:
