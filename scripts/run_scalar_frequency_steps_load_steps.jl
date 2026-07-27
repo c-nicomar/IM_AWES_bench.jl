@@ -328,7 +328,3 @@ if include_observer
     println("Final observed torque = ", Te_obs[end], " N m")
     println("Final observed rotor flux = ", flux_r_mod_obs[end], " Wb")
 end
-
-println()
-println("Press ENTER to close.")
-readline()
