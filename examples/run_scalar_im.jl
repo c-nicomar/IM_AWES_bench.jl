@@ -101,5 +101,7 @@ println(csv_file)
 
 println("Final speed = ", speed[end], " rpm")
 println("Expected synchronous speed = ", n_sync, " rpm")
-println("Press ENTER to close.")
-readline()
+if ! isinteractive()
+    println("Press ENTER to close.")
+    readline()
+end
