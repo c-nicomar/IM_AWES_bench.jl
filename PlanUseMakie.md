@@ -5,16 +5,17 @@ Makie, which removes that dependency and makes the installation easier.
 
 ## Scope
 
-ControlPlots is used in **both** `examples/` and `scripts/` — 11 run scripts and 2 `Project.toml`
-files in total:
+At the time of the migration, ControlPlots was used by 11 run scripts split
+between `examples/` and `scripts/`. All run scripts have since been consolidated
+under `scripts/`, which now has the only runner `Project.toml`.
 
-| Location | Files with `using ControlPlots` |
+| Former location | Files migrated |
 |---|---|
-| `examples/` | 1 (`run_scalar_im.jl`) |
+| `examples/` | 1 (`run_scalar_im.jl`, now in `scripts/`) |
 | `scripts/` | 10 |
 
-Both must be migrated. Migrating only `examples/` leaves ControlPlots in the `scripts/` project, so
-Python/matplotlib would still be required and the benefit would not be achieved.
+The migration covered both locations. The former `examples/Project.toml` is no
+longer needed because `run_scalar_im.jl` now uses `scripts/Project.toml`.
 
 ControlPlots is the only Python-dependent package in this repository, so completing the migration
 removes the Python dependency entirely.
@@ -30,8 +31,8 @@ compatible with this repository's `julia = "1.12"`.
 
 ## Steps
 
-1. `examples/Project.toml` and `scripts/Project.toml`: replace the `ControlPlots` dependency with
-   `MakieControlPlots`.
+1. Replace the `ControlPlots` dependency with `MakieControlPlots` in the runner
+   environments. After runner consolidation, only `scripts/Project.toml` remains.
 2. All 11 run scripts: `using ControlPlots` → `using MakieControlPlots`.
 3. All 12 `plotx` calls: rename the two keyword arguments that differ. MakieControlPlots' `plotx`
    has an explicit keyword list with no `kwargs...` catch-all, so the ControlPlots names are **not**
