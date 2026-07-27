@@ -32,7 +32,10 @@ Established by inspecting the tree; re-check if the code moves under you.
   and referenced nowhere in `src/`.
 - ~~`test/runtests.jl` asserts `1+1 == 2` and nothing else.~~ Replaced in
   phase 2; see below.
-- `Manifest.toml` is gitignored (`.gitignore:9`), not tracked — so dependency
+- The manifest is `Manifest-v1.12.toml` — Julia's version-specific manifest
+  name requires a **hyphen**; `Manifest_v1.12.toml` with an underscore is not a
+  name Julia recognizes (`Base.manifest_names`) and leaves the project with no
+  manifest at all. It is gitignored (`.gitignore:9,32-33`), not tracked — so dependency
   changes leave no diff to review and every clone resolves fresh.
 
 ## Phase 1 — drop dead dependencies
@@ -77,26 +80,65 @@ Do this before moving files, so the move has something to fail against.
       `simulate_foc_current_im` does **not** — see below.
 - [x] Add `ModelingToolkit` and `TOML` to `test/Project.toml`.
 
-Result: 49 pass, 5 broken, 0 fail. Runtime ~43 s, dominated by the two MTK
-smoke tests (22 s for the scalar build/simplify/solve).
+Result: 62 pass, 3 broken, 0 fail, ~39 s. The 3 remaining broken are the
+intentional phase-3 load-isolation tripwires.
 
-### Found while writing the tests: `simulate_foc_current_im` is broken
+### Found while writing the tests: `simulate_foc_current_im` was broken — FIXED
 
-Pre-existing, and unrelated to this migration. The solve aborts at `t = 0` with
-retcode `Unstable` — "dt was forced below floating point epsilon". Reproduced
-with default arguments, with the exact arguments from
-`scripts/run_foc_current_steps.jl`, and at `tspan` of 0.05, 0.5 and 2.0.
-`scripts/run_foc_current_steps.jl` is therefore currently broken too.
+Pre-existing, unrelated to this migration. The solve aborted at `t = 0` with
+retcode `Unstable` — "dt was forced below floating point epsilon" — under both
+`Rodas5P` and `FBDF`, at every `tspan` tried. `scripts/run_foc_current_steps.jl`
+was broken by the same cause.
 
-The system builds and `structural_simplify` succeeds; only the solve fails,
-which points at initial conditions or an algebraic loop in
-`src/systems/foc_current_im_system.jl` rather than anything dependency-related.
-That file was last touched in `af5a65c`, well before this work.
+Root cause: **NaN in MTK's analytical Jacobian at the zero-flux initial
+condition.** `sqrt(x)` has an infinite derivative at `x = 0`, so
 
-Marked `@test_broken` so the suite stays usable as a phase-3 tripwire. Worth
-fixing before phase 3 if possible — until it is, half the MTK smoke coverage is
-inert, and a scoping mistake in the moved FOC equation builders would not be
-caught.
+    flux_r_mod_obs ~ sqrt(λrα_obs^2 + λrβ_obs^2)
+
+differentiates to `λrα / sqrt(λrα^2 + λrβ^2)` = `0/0` = NaN when the machine
+starts from rest. Rodas5P and FBDF both use the symbolic Jacobian, so the very
+first step from `u0 = 0` returned all-NaN and `dt` collapsed to 5e-324.
+
+What made this hard to see: every cheap diagnostic looks healthy. `u0` and
+`du(0)` are exactly zero with no NaN, the *finite-difference* Jacobian is
+well-scaled (max entry 329, max |eig| 8.6, no stiffness), the DAE is index-1
+(the 2x2 algebraic block for `isα`/`isβ` has det -8.1e-5, full rank), and
+`W = M/(γh) - J` is nonsingular at every `dt`. Only the symbolic Jacobian is
+poisoned, and only at exactly zero flux — finite differences step off the
+singular point and never see it.
+
+Fix in `src/estimators/rotor_flux_observer.jl`: move the existing `flux_eps`
+regularization inside the square roots.
+
+    flux_r_mod_obs ~ sqrt(λrα_obs^2 + λrβ_obs^2 + flux_eps^2)
+    flux_s_mod_obs ~ sqrt(ψsd_e_obs^2 + ψsq_e_obs^2 + flux_eps^2)
+
+The file already regularized the flux *angle* against `atan(0,0)`; the
+*magnitude* had been left unguarded. The offset shifts the magnitude by ~1e-12 Wb
+at zero flux and less thereafter — far below any physically meaningful flux.
+
+Verified: analytical Jacobian is NaN-free, `tspan` of 0.05 / 2.0 / 12.0 all
+return `Success` (10620 points over the full 12 s), and the controller tracks
+its references exactly — `isd` -> 10 A, `isq` -> 15 / -15 / 0 A, rotor flux
+settling at 0.4084 Wb = `Lm * isd`. Two regression testsets added: one asserting
+the analytical Jacobian is finite at zero flux, one asserting reference
+tracking.
+
+### Still open: `simulate_scalar_im(include_observer = true)` throws
+
+Separate pre-existing bug, found while testing the above. It fails immediately:
+
+    FieldError: type NamedTuple has no field `wsl_obs`
+
+`build_rotor_flux_observer_eqs` reads `vars.wsl_obs` and `vars.ws_obs`
+(`rotor_flux_observer.jl:58-59`), but `build_scalar_im_system` never declares
+them — its `@variables` block stops at `flux_s_mod_obs`. The FOC system declares
+both (`foc_current_im_system.jl:225-226`), so the slip equations were added for
+the FOC path and never back-ported to the scalar one. The observer branch of the
+scalar system is dead code that errors the moment it is switched on.
+
+Not fixed — it is independent of the migration. Worth doing before phase 3 only
+because the two systems will end up in the same extension file.
 
 ## Phase 3 — the extension move
 
