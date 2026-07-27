@@ -1,0 +1,149 @@
+# Plan: move MTK-dependent code into a package extension
+
+Goal: `using IM_AWES_bench` loads with no symbolic/solver stack. The hybrid FOC
+simulators are the fast path and must not pay for ModelingToolkit. The
+scalar/FOC-current MTK builders become available when the user also loads
+ModelingToolkit.
+
+Status: phase 1 done, phases 2-4 open. Julia 1.12, extensions available.
+
+## Verified facts
+
+Established by inspecting the tree; re-check if the code moves under you.
+
+- The four `simulate_*_hybrid` functions in `src/simulators/` contain no MTK
+  tokens and call none of the `build_*_eqs`, `build_*_system`, or `*_tstops`
+  helpers. The hybrid path and the MTK path are disjoint.
+- `src/IM_AWES_bench.jl:6-7` is the only `using ModelingToolkit` in the package.
+  The `D_nounits as D` alias from line 7 is what puts `D` in scope for every
+  equation builder, so those builders are coupled to MTK even though their
+  bodies never name it.
+- Only four functions construct or solve systems: `build_scalar_im_system`,
+  `simulate_scalar_im`, `build_foc_current_im_system`, `simulate_foc_current_im`.
+- Six equation builders return `Vector{Equation}` built with `~` and `D(...)`:
+  `build_scalar_vf_control_eqs`, `build_foc_current_controller_eqs`,
+  `build_rotor_flux_observer_eqs`, `build_induction_machine_alpha_beta_eqs`,
+  `build_frequency_command_eqs`, `build_load_torque_eqs`.
+- Every call site of those builders and of `frequency_profile_tstops` /
+  `load_profile_tstops` is inside `src/systems/`. None are exported.
+- `solve` appears only in the two `src/systems/` files.
+- `ModelingToolkitStandardLibrary`, `DifferentialEquations`, `MAT`,
+  `DataInterpolations`, `CSV`, and `DataFrames` are declared in `Project.toml`
+  and referenced nowhere in `src/`.
+- `test/runtests.jl` asserts `1+1 == 2` and nothing else. There is no coverage
+  that would catch a bad move.
+
+## Phase 1 — drop dead dependencies
+
+Independent of the extension work and worth doing first: it is reversible and
+needs no API redesign. Done — but see the note under Load time: the expectation
+that this would cut load time was wrong, so the payoff here is a smaller install
+and resolve footprint, not a faster `using`.
+
+- [x] Remove from `[deps]` in `Project.toml`: `DifferentialEquations`, `MAT`,
+      `DataInterpolations`, `CSV`, `DataFrames`, `ModelingToolkitStandardLibrary`.
+      Root project is now `ModelingToolkit` + `OrdinaryDiffEq` only.
+- [x] Leave `CSV`/`DataFrames` in `scripts/Project.toml` — the scripts do use them.
+      `examples/Project.toml` already declared them too.
+- [x] `Pkg.resolve()`, then confirm `using IM_AWES_bench` still works. The four
+      unused packages left `Manifest.toml` entirely; `CSV`/`DataFrames` remain,
+      correctly, as workspace members still require them.
+- [x] Confirm the workspace still resolves: `using CSV, DataFrames, IM_AWES_bench`
+      succeeds under both `--project=scripts` and `--project=examples`.
+      `test/runtests.jl` passes. Note that no script was actually *run* — the
+      plotting scripts open a window, so this checks resolution, not execution.
+- [x] Record `@time using IM_AWES_bench` before and after, in the table below.
+
+## Phase 2 — test scaffolding
+
+Do this before moving files, so the move has something to fail against.
+
+- [ ] In `test/runtests.jl`, add a testset that loads `IM_AWES_bench` alone and
+      asserts the four hybrid simulators are callable.
+- [ ] Add a testset asserting the MTK builders are *not* yet available, then
+      `using ModelingToolkit`, then asserting they are. This must run in a fresh
+      process — extension loading is not reversible within a session, so it needs
+      its own `julia -e` subprocess rather than a plain testset.
+- [ ] Add a smoke test: one short `simulate_scalar_im` run and one
+      `simulate_foc_current_im` run, asserting finite output of the expected
+      length. This is the only thing that will catch a scoping mistake in the
+      moved equation builders.
+
+## Phase 3 — the extension move
+
+Files to move into `ext/IM_AWES_benchMTKExt.jl` (or an `ext/` directory with the
+extension including them):
+
+- [ ] `src/plants/induction_machine_alpha_beta.jl`
+- [ ] `src/controls/scalar_vf_control.jl`
+- [ ] `src/controls/FOC/current_controller.jl` — the continuous one only, *not*
+      `current_controller_discrete.jl`
+- [ ] `src/estimators/rotor_flux_observer.jl` — continuous only, not the
+      `_discrete` variant
+- [ ] `src/profiles/frequency_profiles.jl` — moves wholesale; `*_tstops` is pure
+      numeric but is only called from `src/systems/` and is not exported
+- [ ] `src/profiles/load_profiles.jl` — same
+- [ ] `src/systems/scalar_im_system.jl`
+- [ ] `src/systems/foc_current_im_system.jl`
+
+Manifest changes:
+
+- [ ] Move `ModelingToolkit` and `OrdinaryDiffEq` from `[deps]` to `[weakdeps]`.
+      `OrdinaryDiffEq` matters: leave it in `[deps]` and the solver stack still
+      loads on every `using`, which defeats the point.
+- [ ] Add `[extensions]` with `IM_AWES_benchMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]`.
+- [ ] Keep both under `[compat]`.
+
+Stub declarations — an extension can only add methods to functions the parent
+already declares, so without these `using ModelingToolkit` yields an
+`UndefVarError` rather than the builders:
+
+- [ ] In `src/IM_AWES_bench.jl`, declare `function build_scalar_im_system end`,
+      `function simulate_scalar_im end`, `function build_foc_current_im_system end`,
+      `function simulate_foc_current_im end`.
+- [ ] Keep the existing `export` lines for those four in the main module.
+- [ ] Decide whether the six equation builders need stubs too. They are not
+      currently exported and are only called from within what becomes the
+      extension, so probably not — but check before deleting the includes.
+- [ ] Delete `using ModelingToolkit` / `using OrdinaryDiffEq` and the include
+      lines for moved files from `src/IM_AWES_bench.jl`.
+- [ ] Add `using ModelingToolkit: t_nounits as t, D_nounits as D` inside the
+      extension — the moved builders depend on `D` being in scope.
+
+## Phase 4 — verify
+
+- [ ] Phase 2 tests pass.
+- [ ] `@time using IM_AWES_bench` improved; fill in the table.
+- [ ] The scripts in `scripts/` that use only hybrid simulators still run
+      without loading MTK. Check with `haskey(Base.loaded_modules, ...)` or by
+      inspecting load time.
+- [ ] The scalar/FOC-current path still runs after `using ModelingToolkit`.
+- [ ] `docs/` mentions the MTK builders — update for the new load requirement.
+
+## Load time
+
+| Stage | `@time using IM_AWES_bench` |
+| --- | --- |
+| baseline | 5.73 s, 10.60 M allocations, 738.7 MiB |
+| after phase 1 | 5.67 s, 10.54 M allocations, 737.6 MiB |
+| after phase 3 | |
+
+Phase 1 bought no load-time improvement, and in hindsight could not have: the
+six removed packages were declared in `[deps]` but never `using`'d, so they were
+never loaded into the session to begin with. Removing them shrinks the install
+and resolve footprint — four packages left the manifest entirely — but the
+runtime load cost was always `ModelingToolkit` plus `OrdinaryDiffEq`, which are
+the only two things `src/IM_AWES_bench.jl` actually imports. The entire load-time
+win therefore rests on phase 3.
+
+## Open questions
+
+- Does anything outside this repo depend on the MTK builders being available
+  from a bare `using IM_AWES_bench`? If so this is a breaking change and wants a
+  version bump beyond `1.0.0-DEV`.
+- ~~`examples/` was not inspected.~~ Resolved: `examples/run_scalar_im.jl:11`
+  calls `simulate_scalar_im`, so it *does* use the MTK path and will need
+  `using ModelingToolkit` added after phase 3. It is the only example.
+- Is the split worth keeping the two paths in one package at all, versus a
+  separate `IM_AWES_bench_MTK` package? The extension keeps one package and one
+  version, which is probably right, but worth a moment's thought before the move.
