@@ -232,6 +232,25 @@ Two things the original sketch missed, both found during the move:
       Not executed — they open plot windows — so this is verified by resolution
       and imports, not by a full run.
 
+## Post-migration test cleanup
+
+The migration scaffolding is gone now that phases 1-4 are complete:
+
+- Dropped `EXT_MIGRATED` / `ROOT_PROJECT` auto-detection and the `TOML`
+  dependency. Every `@test_broken` branch became a direct assertion, so the
+  suite states the contract instead of describing a transition.
+- Renamed the testsets to what they check now ("bare load pulls in no symbolic
+  stack", "both triggers load the extension") rather than to migration phases,
+  and rewrote the comments that referred to "before/after phase 3".
+- Strengthened the probe: it now reports whether `OrdinaryDiffEq` is loaded as
+  well as `ModelingToolkit`, so the isolation test covers both trigger packages
+  rather than just one.
+- Added a testset for the `build_scalar_im_model` alias — it is a `const` in the
+  parent pointing at a stub, an arrangement that would silently break if the
+  stubs were ever restructured.
+
+81 pass, 0 fail, ~67 s.
+
 ## Load time
 
 | Stage | `@time using IM_AWES_bench` |

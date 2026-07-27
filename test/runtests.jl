@@ -4,30 +4,15 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using Test
-using TOML
 using IM_AWES_bench
-
-# ============================================================
-# Migration state
-# ============================================================
-#
-# Phase 3 of Plan.md moves the MTK-dependent code into a package extension.
-# Until that lands, the load-isolation assertions below cannot hold: the main
-# module still does `using ModelingToolkit` at top level. Rather than hard-code
-# the state, detect it from the root Project.toml so these tests start asserting
-# the real thing the moment the extension exists — no constant to remember to
-# flip.
-
-const ROOT_PROJECT = TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
-const EXT_MIGRATED = haskey(ROOT_PROJECT, "extensions")
 
 # ============================================================
 # Subprocess helper
 # ============================================================
 #
-# Extension loading is one-way within a session: once ModelingToolkit is loaded
-# the extension stays loaded, so "absent before, present after" cannot be tested
-# with two testsets in one process. Each probe runs in a fresh julia.
+# Extension loading is one-way within a session: once the trigger packages are
+# loaded the extension stays loaded, so "absent before, present after" cannot be
+# tested with two testsets in one process. Each probe runs in a fresh julia.
 
 """
     probe(code) -> (; ok, out, err)
@@ -44,13 +29,13 @@ function probe(code::AbstractString)
 end
 
 # Printed by every probe below. Method count is the right signal rather than
-# `isdefined`: after phase 3 the stub declarations mean the names exist with
-# zero methods until ModelingToolkit is loaded.
+# `isdefined`: the stub declarations in the main module mean the builder names
+# always exist, and only gain a method once the extension loads.
 const PROBE_PRELUDE = """
-    mtk_loaded() = any(k -> k.name == "ModelingToolkit", keys(Base.loaded_modules))
+    loaded(name) = any(k -> k.name == name, keys(Base.loaded_modules))
     nmeth(f) = length(methods(f))
     report(tag) = println(
-        tag, " mtk=", mtk_loaded(),
+        tag, " mtk=", loaded("ModelingToolkit"), " ode=", loaded("OrdinaryDiffEq"),
         " scalar=", nmeth(IM_AWES_bench.build_scalar_im_system),
         " foc=", nmeth(IM_AWES_bench.build_foc_current_im_system),
     )
@@ -61,6 +46,7 @@ function parse_report(out, tag)
     fields = Dict(split(kv, '=')[1] => split(kv, '=')[2] for kv in split(line)[2:end])
     return (;
         mtk = parse(Bool, fields["mtk"]),
+        ode = parse(Bool, fields["ode"]),
         scalar = parse(Int, fields["scalar"]),
         foc = parse(Int, fields["foc"]),
     )
@@ -101,36 +87,30 @@ end
     end
 
     # ========================================================
-    # Load isolation
+    # Extension loading
     # ========================================================
     #
-    # Before phase 3 these are @test_broken: `using IM_AWES_bench` still drags
-    # in ModelingToolkit and the builders already carry their methods. After
-    # phase 3 EXT_MIGRATED flips and they assert the real contract.
+    # The whole point of the MTK extension: a bare `using IM_AWES_bench` must
+    # stay free of the symbolic and solver stacks. If these fail, the package
+    # has quietly reacquired a hard dependency on ModelingToolkit.
 
-    @testset "load isolation" begin
+    @testset "bare load pulls in no symbolic stack" begin
         r = probe(PROBE_PRELUDE * """
             using IM_AWES_bench
             report("BARE")
         """)
         @test r.ok
         bare = parse_report(r.out, "BARE")
-
-        if EXT_MIGRATED
-            @test !bare.mtk
-            @test bare.scalar == 0
-            @test bare.foc == 0
-        else
-            @test_broken !bare.mtk
-            @test_broken bare.scalar == 0
-            @test_broken bare.foc == 0
-        end
+        @test !bare.mtk
+        @test !bare.ode
+        @test bare.scalar == 0
+        @test bare.foc == 0
     end
 
-    # The extension triggers on ModelingToolkit AND OrdinaryDiffEq — Julia loads
-    # an extension only once every package in its trigger list is present. MTK
-    # alone is not enough, because the simulate_* functions default to
-    # Rodas5P() and call solve.
+    # Julia loads an extension only once *every* package in its trigger list is
+    # present. ModelingToolkit alone is not enough here, because the simulate_*
+    # functions default to Rodas5P() and call solve, so OrdinaryDiffEq cannot be
+    # dropped from the trigger list. This pins the user-facing contract.
     @testset "ModelingToolkit alone does not trigger the extension" begin
         r = probe(PROBE_PRELUDE * """
             using IM_AWES_bench
@@ -140,16 +120,11 @@ end
         @test r.ok
         mtkonly = parse_report(r.out, "MTKONLY")
         @test mtkonly.mtk
-        if EXT_MIGRATED
-            @test mtkonly.scalar == 0
-            @test mtkonly.foc == 0
-        else
-            @test_broken mtkonly.scalar == 0
-            @test_broken mtkonly.foc == 0
-        end
+        @test mtkonly.scalar == 0
+        @test mtkonly.foc == 0
     end
 
-    @testset "builders available with ModelingToolkit" begin
+    @testset "both triggers load the extension" begin
         r = probe(PROBE_PRELUDE * """
             using IM_AWES_bench
             using ModelingToolkit
@@ -158,23 +133,34 @@ end
         """)
         @test r.ok
         withmtk = parse_report(r.out, "WITHMTK")
-
-        # Holds both before and after phase 3 — this is the invariant the
-        # migration must not break.
         @test withmtk.mtk
+        @test withmtk.ode
         @test withmtk.scalar >= 1
         @test withmtk.foc >= 1
     end
 
+    # The alias is a `const` in the main module pointing at the stub, because an
+    # extension cannot create a binding in its parent. It must still resolve to
+    # the same function object once the extension has added its method.
+    @testset "build_scalar_im_model alias" begin
+        r = probe("""
+            using IM_AWES_bench, ModelingToolkit, OrdinaryDiffEq
+            println("ALIAS ", build_scalar_im_model === build_scalar_im_system,
+                    " ", length(methods(build_scalar_im_model)))
+        """)
+        @test r.ok
+        @test occursin("ALIAS true 1", r.out)
+    end
+
     # ========================================================
-    # MTK path smoke tests
+    # MTK path
     # ========================================================
     #
-    # Short runs, but they exercise build -> structural_simplify -> solve. This
+    # Short runs, but they exercise build -> structural_simplify -> solve, which
     # is the only coverage that would catch a scoping mistake in an equation
-    # builder moved into the extension (e.g. `D` no longer in scope).
+    # builder inside the extension (e.g. `D` no longer in scope).
 
-    @testset "MTK smoke tests" begin
+    @testset "MTK path" begin
         @eval using ModelingToolkit
         @eval using OrdinaryDiffEq
 
@@ -188,11 +174,10 @@ end
             @test all(u -> all(isfinite, u), sol.u)
         end
 
-        # The observer branch of the scalar system used to throw
+        # The observer branch of the scalar system once threw
         # `FieldError: type NamedTuple has no field wsl_obs` — the slip
         # equations were added to build_rotor_flux_observer_eqs for the FOC
-        # system and never back-ported here. Nothing exercised it, so it went
-        # unnoticed.
+        # system and never back-ported here. Nothing exercised it, so it rotted.
         @testset "simulate_scalar_im with observer" begin
             sol, sys = simulate_scalar_im(; tspan = (0.0, 2.0), include_observer = true)
             @test length(sol.t) > 1
