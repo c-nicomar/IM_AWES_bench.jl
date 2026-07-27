@@ -1,6 +1,6 @@
 name = "IM_AWES_bench"
 uuid = "d85c8359-f9b8-4611-8006-e67b7a824205"
-version = "1.0.0-DEV"
+version = "1.0.0"
 authors = ["Carolina Nicolás <canicola@ing.uc3m.es> and contributors"]
 
 [workspace]
