@@ -19,41 +19,58 @@ notes flag where `main` moved something after the fact.
 
 ## Verified facts
 
-Established by inspecting the tree; re-check if the code moves under you.
+State of the tree **after** the migration and after `main` was rebased on top.
+Re-check if the code moves under you. Where the migration changed something, the
+pre-migration form is noted, because the phase notes below were written against
+it.
 
+- The package has **no `[deps]`**. `ModelingToolkit` and `OrdinaryDiffEq` are
+  `[weakdeps]` and are the two triggers of `IM_AWES_benchMTKExt`.
+  *Before:* both were hard dependencies, and `src/IM_AWES_bench.jl:6-7` held the
+  only `using ModelingToolkit` in the package.
+- The `D_nounits as D` alias lives in `ext/IM_AWES_benchMTKExt.jl`. It is what
+  puts `D` in scope for every equation builder, so those builders are coupled to
+  MTK even though their bodies never name it — move one out of the extension
+  without carrying the alias and it fails at parse time.
+  *Before:* the alias sat at the top of the main module.
+- Everything symbolic is under `ext/`, keeping its original subdirectory
+  structure: `ext/systems/`, `ext/profiles/`, `ext/controls/`, `ext/plants/`,
+  `ext/estimators/`. Nothing under `src/` touches MTK.
+- The five `simulate_*_hybrid` functions in `src/simulators/` contain no MTK
+  tokens and call none of the `build_*_eqs`, `build_*_system`, or `*_tstops`
+  helpers. The hybrid path and the MTK path are disjoint. This is the invariant
+  the whole split rests on; `hybrid_foc_speed_f1_160kw_simulator.jl` arrived from
+  `main` after the split and satisfies it.
+- Only four functions construct or solve systems: `build_scalar_im_system`,
+  `simulate_scalar_im`, `build_foc_current_im_system`, `simulate_foc_current_im`.
+  All four are stub-declared in `src/IM_AWES_bench.jl` and given their single
+  method by the extension. `build_scalar_im_model` is a `const` alias to the
+  first stub, in the parent for the same binding reason.
+- Six equation builders return `Vector{Equation}` built with `~` and `D(...)`:
+  `build_scalar_vf_control_eqs`, `build_foc_current_controller_eqs`,
+  `build_rotor_flux_observer_eqs`, `build_induction_machine_alpha_beta_eqs`,
+  `build_frequency_command_eqs`, `build_load_torque_eqs`. They are unexported
+  and internal to the extension — no stubs needed.
+- Every call site of those builders and of `frequency_profile_tstops` /
+  `load_profile_tstops` is inside `ext/systems/`, as is every `solve` call.
+  *Before:* `src/systems/`.
+- The system builders use `System(eqs, t)` and `mtkcompile(sys)`. The older
+  `ODESystem` / `structural_simplify` spellings are deprecated in MTK v11 and
+  warn at runtime.
+- ~~`ModelingToolkitStandardLibrary`, `DifferentialEquations`, `MAT`,
+  `DataInterpolations`, `CSV`, and `DataFrames` are declared in `Project.toml`
+  and referenced nowhere in `src/`.~~ All six removed in phase 1.
+- ~~`test/runtests.jl` asserts `1+1 == 2` and nothing else.~~ Replaced in
+  phase 2; see below.
 - `examples/` no longer exists. `main` deleted it and moved its one script to
   `scripts/run_scalar_im.jl`; the workspace is now
   `projects = ["scripts", "test"]`. Anywhere this document says
   `examples/run_scalar_im.jl` or `--project=examples`, read `scripts/`.
-- `src/simulators/hybrid_foc_speed_f1_160kw_simulator.jl` arrived from `main`
-  after the split and is MTK-free, so it sits correctly on the fast path.
-
-- The four `simulate_*_hybrid` functions in `src/simulators/` contain no MTK
-  tokens and call none of the `build_*_eqs`, `build_*_system`, or `*_tstops`
-  helpers. The hybrid path and the MTK path are disjoint.
-- `src/IM_AWES_bench.jl:6-7` is the only `using ModelingToolkit` in the package.
-  The `D_nounits as D` alias from line 7 is what puts `D` in scope for every
-  equation builder, so those builders are coupled to MTK even though their
-  bodies never name it.
-- Only four functions construct or solve systems: `build_scalar_im_system`,
-  `simulate_scalar_im`, `build_foc_current_im_system`, `simulate_foc_current_im`.
-- Six equation builders return `Vector{Equation}` built with `~` and `D(...)`:
-  `build_scalar_vf_control_eqs`, `build_foc_current_controller_eqs`,
-  `build_rotor_flux_observer_eqs`, `build_induction_machine_alpha_beta_eqs`,
-  `build_frequency_command_eqs`, `build_load_torque_eqs`.
-- Every call site of those builders and of `frequency_profile_tstops` /
-  `load_profile_tstops` is inside `src/systems/`. None are exported.
-- `solve` appears only in the two `src/systems/` files.
-- `ModelingToolkitStandardLibrary`, `DifferentialEquations`, `MAT`,
-  `DataInterpolations`, `CSV`, and `DataFrames` are declared in `Project.toml`
-  and referenced nowhere in `src/`.
-- ~~`test/runtests.jl` asserts `1+1 == 2` and nothing else.~~ Replaced in
-  phase 2; see below.
 - The manifest is `Manifest-v1.12.toml` — Julia's version-specific manifest
   name requires a **hyphen**; `Manifest_v1.12.toml` with an underscore is not a
   name Julia recognizes (`Base.manifest_names`) and leaves the project with no
-  manifest at all. It is gitignored (`.gitignore:9,32-33`), not tracked — so dependency
-  changes leave no diff to review and every clone resolves fresh.
+  manifest at all. It is gitignored (`.gitignore:9,32-33`), not tracked — so
+  dependency changes leave no diff to review and every clone resolves fresh.
 
 ## Phase 1 — drop dead dependencies
 
