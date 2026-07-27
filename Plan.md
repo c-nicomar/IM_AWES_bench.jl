@@ -86,7 +86,7 @@ Do this before moving files, so the move has something to fail against.
       `t_end = 0.05`, `Ts = 100e-6`, checked for sample count, monotonic time,
       finite `speed_rpm`/`torque`, and matching array lengths.
 - [x] Add a testset asserting the MTK builders are *not* yet available, then
-      `using ModelingToolkit`, then asserting they are. Implemented via a
+      loading both triggers, then asserting they are. Implemented via a
       `probe()` helper that runs each check in a fresh `julia -e` subprocess.
       The signal is *method count*, not `isdefined` — after phase 3 the stub
       declarations mean the names exist with zero methods until MTK loads.
@@ -191,7 +191,7 @@ Manifest changes:
 - [x] Keep both under `[compat]`.
 
 Stub declarations — an extension can only add methods to functions the parent
-already declares, so without these `using ModelingToolkit` yields an
+already declares, so without these, loading the triggers yields an
 `UndefVarError` rather than the builders:
 
 - [x] In `src/IM_AWES_bench.jl`, declare `function build_scalar_im_system end`,
