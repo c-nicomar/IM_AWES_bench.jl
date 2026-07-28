@@ -159,7 +159,7 @@ p_speed_torque = plotx(
 
     title = "160 kW im IM: speed and torque",
     fig = "im_160kw_speed_torque",
-    legendsize = 14,
+    legendsize = 12,
 )
 
 display(p_speed_torque)
@@ -227,7 +227,7 @@ p_electrical = plotx(
 
     title = "160 kW im IM: electrical control variables",
     fig = "im_160kw_electrical",
-    legendsize = 14,
+    legendsize = 12,
 )
 
 display(p_electrical)
@@ -301,7 +301,7 @@ p_limits_power = plotx(
 
     title = "160 kW im IM: limits and power",
     fig = "im_160kw_limits_power",
-    legendsize = 14,
+    legendsize = 12,
 )
 
 display(p_limits_power)
