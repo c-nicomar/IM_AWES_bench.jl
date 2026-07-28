@@ -39,6 +39,25 @@ end
 # tested with two testsets in one process. Each probe runs in a fresh julia.
 
 """
+    stock_julia_cmd()
+
+`Base.julia_cmd()` with any custom system image stripped off.
+
+`julia_cmd()` always reproduces the running process's `-J<image>`, so a session
+started by `bin/run_julia` would hand `bin/sysimage.so` to every probe below.
+That image bakes in ModelingToolkit and OrdinaryDiffEq, which makes the
+"absent before" probes report them as loaded and the extension as already
+triggered — the very thing they exist to rule out. Without the flag julia falls
+back to its default image, so the probes test the package rather than the image.
+"""
+function stock_julia_cmd()
+    args = filter(Base.julia_cmd().exec) do a
+        !startswith(a, "-J") && !startswith(a, "--sysimage")
+    end
+    return Cmd(args)
+end
+
+"""
     probe(code) -> (; ok, out, err)
 
 Run `code` in a fresh julia process on the test environment. Returns the
@@ -47,7 +66,7 @@ process's stdout, stderr, and whether it exited cleanly.
 function probe(code::AbstractString)
     out = IOBuffer()
     err = IOBuffer()
-    cmd = `$(Base.julia_cmd()) --startup-file=no --project=$(@__DIR__) -e $code`
+    cmd = `$(stock_julia_cmd()) --startup-file=no --project=$(@__DIR__) -e $code`
     p = run(pipeline(ignorestatus(cmd); stdout = out, stderr = err))
     return (; ok = p.exitcode == 0, out = String(take!(out)), err = String(take!(err)))
 end
