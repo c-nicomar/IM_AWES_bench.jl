@@ -253,7 +253,7 @@ p_plot = plotx(
     fig = "FOC speed control - AWES profile",
     title = "FOC speed control with AWES profile: currents, torque and power",
     yzoom = 1.20,
-    legendsize = 14,
+    legendsize = 13,
 )
 
 display(p_plot)
