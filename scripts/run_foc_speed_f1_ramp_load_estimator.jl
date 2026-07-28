@@ -162,16 +162,7 @@ wm_ref_rpm = res.wm_ref .* 60 ./ (2π)
 wm_ref_ramp_rpm = res.wm_ref_ramp .* 60 ./ (2π)
 omega_hat_load_rpm = res.omega_hat_load .* 60 ./ (2π)
 
-p_plot = plotx(
-    res.t,
-    [wm_ref_rpm, wm_ref_ramp_rpm, res.speed_rpm],
-    [res.Te_ref_out, res.torque, res.torque_obs],
-    [res.Tload, res.TL_est],
-    [res.isd_ref, res.isd],
-    [res.isq_ref, res.isq],
-    res.flux_r,
-    [res.vsd, res.vsq],
-    [res.saturation_current, res.sat_Te, res.sat_isd, res.sat_isq];
+plot_kwargs = (;
     xlabel = "Time [s]",
     ylabels = [
         "Speed [rpm]",
@@ -183,6 +174,7 @@ p_plot = plotx(
         "Voltage dq [V]",
         "Saturation [-]",
     ],
+    ysize = 13,
     labels = [
         ["wm ref", "wm ref ramp", "wm measured"],
         ["Te ref", "Plant torque", "Observed torque"],
@@ -196,10 +188,27 @@ p_plot = plotx(
     fig = "FOC speed F1 with load estimator",
     title = "FOC speed loop with optional load-torque feedforward",
     yzoom = 1.20,
-    legendsize = 13,
+    legendsize = 12,
+)
+if pkgversion(MakieControlPlots) >= v"0.1.12"
+    plot_kwargs = (; plot_kwargs..., rowgap = 6)
+end
+
+p_plot = plotx(
+    res.t,
+    [wm_ref_rpm, wm_ref_ramp_rpm, res.speed_rpm],
+    [res.Te_ref_out, res.torque, res.torque_obs],
+    [res.Tload, res.TL_est],
+    [res.isd_ref, res.isd],
+    [res.isq_ref, res.isq],
+    res.flux_r,
+    [res.vsd, res.vsq],
+    [res.saturation_current, res.sat_Te, res.sat_isd, res.sat_isq];
+    plot_kwargs...,
 )
 
 display(p_plot)
+MakieControlPlots.save(joinpath(@__DIR__, "..", "results", case_name * ".jld2"), p_plot)
 
 # ============================================================
 # Save results
