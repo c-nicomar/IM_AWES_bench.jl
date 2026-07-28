@@ -307,7 +307,7 @@ function simulate_foc_speed_f1_im_160kw(;
     # ------------------------------------------------------------
     # Inner current-controller parameters
     # ------------------------------------------------------------
-    Vdc::Float64 = 605.0,
+    Vdc::Float64 = 1000.0,
     Vs_max::Float64 = Vdc / sqrt(3.0),
 
     # The Simulink current-controller input uses Is_lim*0.95.
@@ -510,6 +510,7 @@ function simulate_foc_speed_f1_im_160kw(;
 
         p = p_pairs,
         Lm = Lm_nom * outer_Lm_scale,
+        Lss = Lss_nom,
         Lrr = Lrr_nom * outer_Lrr_scale,
         J = J * outer_J_scale,
         B = B * outer_B_scale,
@@ -521,6 +522,7 @@ function simulate_foc_speed_f1_im_160kw(;
         Te_max = Te_max,
         wm_dot_max = wm_dot_max,
         id_dot_max = id_dot_max,
+        Vs_max = Vs_max,
 
         use_field_weakening = use_field_weakening,
         wm_base_fw = wm_base_fw,
@@ -713,6 +715,7 @@ function simulate_foc_speed_f1_im_160kw(;
             outer_p;
             wm_ref = wm_ref,
             wm_med = x.ωm,
+            omega_e = obs.omega_e,
             TL_est = TL_est,
             reset = false,
         )
