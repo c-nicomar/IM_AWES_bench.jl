@@ -345,9 +345,6 @@ function simulate_foc_current_hybrid(;
 
     h = Ts / plant_substeps
 
-    vsα_hold = 0.0
-    vsβ_hold = 0.0
-
     for kstep in 1:N
         t = (kstep - 1) * Ts
 
