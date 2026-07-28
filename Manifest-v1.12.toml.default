@@ -1550,9 +1550,9 @@ version = "0.24.13"
 
 [[deps.MakieControlPlots]]
 deps = ["CairoMakie", "GLMakie", "GridLayoutBase", "JLD2", "LaTeXStrings", "Makie", "Pkg", "PrecompileTools", "Printf", "StaticArraysCore"]
-git-tree-sha1 = "3db71940406d9ba448df7459bff27e32567ae71e"
+git-tree-sha1 = "cadab346083c6c924cc896f3d631719feb37f853"
 uuid = "6d616b69-6563-4f6e-8472-6f6c706c6f74"
-version = "0.1.11"
+version = "0.1.12"
 
     [deps.MakieControlPlots.extensions]
     MakieControlPlotsControlSystemsBaseExt = "ControlSystemsBase"
