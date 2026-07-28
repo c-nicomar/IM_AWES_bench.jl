@@ -131,7 +131,7 @@ p_plot = plotx(
     fig = "Hybrid FOC current loop",
     title = "Discrete FOC current loop + continuous IM plant",
     yzoom = 1.20,
-    legendsize = 8,
+    legendsize = 14,
 )
 
 display(p_plot)

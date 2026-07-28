@@ -59,7 +59,7 @@ p = plotx(
     fig = "Scalar 25 Hz",
     title = "Scalar V/f induction machine - 25 Hz",
     yzoom = 1.25,
-    legendsize = 9,
+    legendsize = 14,
 )
 
 display(p)

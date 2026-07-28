@@ -6,4 +6,6 @@ fi
 
 export KMP_DUPLICATE_LIB_OK="TRUE"
 
-julia -t auto --project
+julia_init='menu() = include("scripts/menu.jl"); menu2() = include("scripts/menu2.jl"); println("Type menu() to run one of the hybrid FOC examples, or menu2() for the ModelingToolkit examples.")'
+
+julia -t auto --project -i -e "$julia_init"
