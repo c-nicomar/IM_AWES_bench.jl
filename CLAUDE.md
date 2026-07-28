@@ -40,7 +40,7 @@ or, in a live REPL, `include("test/runtests.jl")`. It is slow by design — four
 
 Run a single simulation script (each activates `scripts/Project.toml` itself):
 ```bash
-julia --project=. scripts/run_foc_current_hybrid_steps.jl
+julia scripts/run_foc_current_hybrid_steps.jl
 ```
 Hybrid FOC scripts: `run_foc_current_hybrid_steps.jl`, `run_foc_torque_f1_steps.jl`, `run_foc_speed_f1_ramp_load_steps.jl`, `run_foc_speed_f1_ramp_load_estimator.jl`, `run_foc_speed_f1_awes_profile.jl`, `run_foc_speed_f1_awes_profile_efficiency.jl`, `run_foc_speed_mtpa_awes_profile.jl`, `run_foc_speed_f1_160kw.jl`.
 
@@ -57,7 +57,7 @@ The package `[deps]` is **empty**. `ModelingToolkit` and `OrdinaryDiffEq` are `[
 
 ```julia
 using IM_AWES_bench                                    # hybrid simulators only
-using IM_AWES_bench, ModelingToolkit, OrdinaryDiffEq   # + symbolic system builders
+using ModelingToolkit, OrdinaryDiffEq, IM_AWES_bench   # + symbolic system builders
 ```
 
 Both triggers are required — Julia loads an extension only once *every* package in the trigger list is present, and `OrdinaryDiffEq` is not optional because the `simulate_*` functions default to `Rodas5P()` and call `solve`. `using ModelingToolkit` alone leaves the builders at zero methods, which is the intended signal; a `MethodError` listing no methods means a trigger is missing, not that the function is broken.
