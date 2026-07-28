@@ -139,7 +139,7 @@ function simulate_foc_speed_f1_hybrid(;
     #   :none
     #   :actual
     #   :kalman
-    load_estimator = :none,
+    load_estimator::Symbol = :none,
     use_load_feedforward = false,
 
     # With convention J*dω = Te + TL - Bω:
