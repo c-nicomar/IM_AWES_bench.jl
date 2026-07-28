@@ -4,7 +4,7 @@
 # `bin/run_julia`.
 #
 # Usage:
-#     bin/sysimage
+#     bin/create_sys_image
 # or
 #     julia -t auto test/create_sys_image.jl
 #
