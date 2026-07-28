@@ -304,6 +304,7 @@ function simulate_foc_speed_f1_hybrid(;
         Ts = Ts,
         p = p_pairs,
         Lm = Lm_nom,
+        Lss = Lss_nom,
         Lrr = Lrr_nom,
         J = J_nom,
         B = B_nom,
@@ -313,6 +314,7 @@ function simulate_foc_speed_f1_hybrid(;
         Te_max = Te_max,
         wm_dot_max = wm_dot_max,
         id_dot_max = id_dot_max,
+        Vs_max = Vs_max,
         use_load_feedforward = use_load_feedforward,
         load_ff_sign = load_ff_sign,
     )
@@ -537,6 +539,7 @@ function simulate_foc_speed_f1_hybrid(;
             outer_p;
             wm_ref = wm_ref,
             wm_med = x.ωm,
+            omega_e = obs.omega_e,
             TL_est = TL_est,
             reset = false,
         )

@@ -26,7 +26,7 @@ res = simulate_foc_speed_f1_im_160kw(
     Ts = 100e-6,
     plant_substeps = 1,
 
-    wm_ref_abs = 50.0,
+    wm_ref_abs = 170.0,
 
     Tload_step1 = 200.0,
     Tload_step2 = 400.0,
@@ -34,11 +34,10 @@ res = simulate_foc_speed_f1_im_160kw(
     # First validation:
     # use the exact simulated load torque in the speed-controller
     # feedforward. Later change to :none or :kalman.
-    load_estimator = :actual,
+    load_estimator = :kalman,
     use_load_feedforward = true,
 
-    # At ±50 rad/s this should remain below the configured
-    # field-weakening threshold.
+    # At ±170 rad/s this crosses the configured field-weakening threshold.
     use_field_weakening = true,
 )
 
@@ -70,6 +69,15 @@ q_current_saturation_fraction =
 field_weakening_fraction =
     mean(res.field_weakening_active .> 0.5)
 
+# Verify that field weakening is driven by the observer's synchronous
+# electrical speed, rather than only by pole-pair-scaled mechanical speed.
+omega_e_mechanical = res.outer_p.p .* res.omega_m
+omega_sl_est = res.omega_e .- omega_e_mechanical
+omega_e_base_fw = res.outer_p.p * res.outer_p.wm_base_fw
+field_weakening_expected = abs.(res.omega_e) .> omega_e_base_fw
+field_weakening_actual = res.field_weakening_active .> 0.5
+field_weakening_mismatches = count(field_weakening_expected .!= field_weakening_actual)
+
 @printf("\n")
 @printf("============================================================\n")
 @printf("160 kW im IM: F1 speed-control test\n")
@@ -96,6 +104,10 @@ field_weakening_fraction =
     "Field-weakening active            : %10.3f %%\n",
     100 * field_weakening_fraction,
 )
+@printf("Maximum |estimated omega_e|        : %10.3f rad/s\n", maximum(abs.(res.omega_e)))
+@printf("Maximum |estimated slip speed|     : %10.3f rad/s\n", maximum(abs.(omega_sl_est)))
+@printf("Electrical FW threshold            : %10.3f rad/s\n", omega_e_base_fw)
+@printf("FW threshold/flag mismatches       : %10d samples\n", field_weakening_mismatches)
 @printf("Nominal rotor time constant       : %10.6f s\n", res.nominal.tau_r)
 @printf(
     "Nominal transient inductance      : %10.6e H\n",
@@ -113,14 +125,67 @@ output_dir = normpath(
 
 mkpath(output_dir)
 
+# MakieControlPlots.plotx currently fails in its internal legend-row predictor
+# when several stacked axes have legends. Build these diagnostic figures
+# directly with the GLMakie instance already loaded by MakieControlPlots.
+const GLM = MakieControlPlots.GLMakie
+const PLOT_SCREENS = Any[]
+
+function display_in_new_screen(figure)
+    screen = GLM.Screen()
+    display(screen, figure)
+    push!(PLOT_SCREENS, screen)
+    return screen
+end
+
+function plot_channels(
+    x,
+    channels...;
+    xlabel,
+    ylabels,
+    labels,
+    ylims = nothing,
+    title = "",
+    fig = "",
+    legendsize = 11,
+    legend_position = :rt,
+    yzoom = 1.5,
+)
+    n = length(channels)
+    figure = GLM.Figure(size = (1000, round(Int, 260 * yzoom * n)))
+    axes = GLM.Axis[]
+
+    for i in 1:n
+        ax = GLM.Axis(
+            figure[i, 1],
+            title = i == 1 ? title : "",
+            xlabel = i == n ? xlabel : "",
+            ylabel = ylabels[i],
+        )
+        push!(axes, ax)
+
+        for (series, label) in zip(channels[i], labels[i])
+            GLM.lines!(ax, x, series; label)
+        end
+        GLM.axislegend(ax; position = legend_position, labelsize = legendsize)
+
+        if !isnothing(ylims) && !isnothing(ylims[i])
+            GLM.ylims!(ax, ylims[i]...)
+        end
+        i < n && GLM.hidexdecorations!(ax; grid = false)
+    end
+
+    n > 1 && GLM.linkxaxes!(axes...)
+    return figure
+end
+
 # ============================================================
 # Plot 1: speed and torque
 #
-# MakieControlPlots.plotx creates vertically aligned control channels.
-# Each vector inside an argument is plotted in the same channel.
+# Each vector inside an argument is plotted in the same GLMakie axis.
 # ============================================================
 
-p_speed_torque = plotx(
+p_speed_torque = plot_channels(
     t,
 
     [
@@ -159,10 +224,12 @@ p_speed_torque = plotx(
 
     title = "160 kW im IM: speed and torque",
     fig = "im_160kw_speed_torque",
-    legendsize = 12,
+    legendsize = 11,
+    legend_position = :rt,
+    yzoom = 1.5,
 )
 
-display(p_speed_torque)
+display_in_new_screen(p_speed_torque)
 
 
 
@@ -172,7 +239,7 @@ display(p_speed_torque)
 
 voltage_limit = fill(res.ctrl_p.Vs_max, length(t))
 
-p_electrical = plotx(
+p_electrical = plot_channels(
     t,
 
     [
@@ -227,10 +294,12 @@ p_electrical = plotx(
 
     title = "160 kW im IM: electrical control variables",
     fig = "im_160kw_electrical",
-    legendsize = 12,
+    legendsize = 11,
+    legend_position = :rt,
+    yzoom = 1.5,
 )
 
-display(p_electrical)
+display_in_new_screen(p_electrical)
 
 # ============================================================
 # Plot 3: current magnitude, power, and saturation flags
@@ -242,7 +311,7 @@ current_limit_inner =
 current_limit_outer =
     fill(res.outer_p.Is_max, length(t))
 
-p_limits_power = plotx(
+p_limits_power = plot_channels(
     t,
 
     [
@@ -301,8 +370,66 @@ p_limits_power = plotx(
 
     title = "160 kW im IM: limits and power",
     fig = "im_160kw_limits_power",
-    legendsize = 12,
+    legendsize = 11,
+    legend_position = :rt,
+    yzoom = 1.5,
 )
 
-display(p_limits_power)
+display_in_new_screen(p_limits_power)
+
+# ============================================================
+# Plot 4: estimated synchronous speed used by field weakening
+# ============================================================
+
+omega_e_base_positive = fill(omega_e_base_fw, length(t))
+omega_e_base_negative = fill(-omega_e_base_fw, length(t))
+
+p_omega_e = plot_channels(
+    t,
+
+    [
+        res.omega_e,
+        omega_e_mechanical,
+        omega_e_base_positive,
+        omega_e_base_negative,
+    ],
+
+    [
+        Float64.(field_weakening_expected),
+        Float64.(field_weakening_actual),
+    ];
+
+    xlabel = "Time [s]",
+
+    ylabels = [
+        "Electrical speed [rad/s]",
+        "Field weakening flag",
+    ],
+
+    labels = [
+        [
+            "Estimated synchronous omega_e",
+            "p * mechanical omega_m",
+            "+ electrical FW threshold",
+            "- electrical FW threshold",
+        ],
+        [
+            "Expected from |omega_e| threshold",
+            "Outer-controller FW flag",
+        ],
+    ],
+
+    ylims = [
+        nothing,
+        (-0.1, 1.2),
+    ],
+
+    title = "160 kW im IM: estimator-based field weakening",
+    fig = "im_160kw_estimated_omega_e",
+    legendsize = 11,
+    legend_position = :rt,
+    yzoom = 1.5,
+)
+
+display_in_new_screen(p_omega_e)
 

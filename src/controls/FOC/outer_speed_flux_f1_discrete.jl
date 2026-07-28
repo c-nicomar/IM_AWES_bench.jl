@@ -27,6 +27,7 @@ Base.@kwdef struct OuterSpeedFluxF1Params
     # Machine / nominal FOC parameters
     p::Float64 = 2.0
     Lm::Float64 = 40.84e-3
+    Lss::Float64 = 45.12e-3
     Lrr::Float64 = 45.12e-3
     J::Float64 = 0.2685 + 0.1
     B::Float64 = 0.01298
@@ -43,14 +44,15 @@ Base.@kwdef struct OuterSpeedFluxF1Params
 
     # Field weakening
     #
-    # If enabled, the F1 flux reference is reduced above `wm_base_fw`.
-    # This is a simple speed-based field-weakening law:
+    # If enabled, the F1 flux reference is reduced above `wm_base_fw` using
+    # both the inverse-speed limit and the steady-state voltage ellipse:
     #
-    #   isd_ref ≈ isd_nom * wm_base_fw / |wm|
+    #   isd_ref = min(isd_nom, isd_speed_limit, isd_voltage_limit)
     #
     # with lower bound `isd_min`.
     use_field_weakening::Bool = false
     wm_base_fw::Float64 = 120.0
+    Vs_max::Float64 = 310.0
 
     # Speed filter and PI design
     tau_f_wm::Float64 = 10e-3
@@ -123,6 +125,7 @@ function outer_speed_flux_f1_step!(
     p::OuterSpeedFluxF1Params;
     wm_ref::Float64,
     wm_med::Float64,
+    omega_e::Union{Nothing, Float64} = nothing,
     TL_est::Float64 = 0.0,
     reset::Bool = false,
 )
@@ -209,9 +212,40 @@ function outer_speed_flux_f1_step!(
     # reel-in/reel-out transients.
     fw_speed = max(abs(wm_filt), abs(wm_ref_ramp))
 
-    if p.use_field_weakening && fw_speed > p.wm_base_fw
+    # Prefer the observer's synchronous electrical speed. Direct callers that
+    # do not provide it retain the previous pole-pair-scaled mechanical-speed
+    # approximation; non-finite observer values use the same safe fallback.
+    omega_e_fw = if isnothing(omega_e) || !isfinite(omega_e)
+        p.p * fw_speed
+    else
+        abs(omega_e)
+    end
+    omega_e_base_fw = p.p * p.wm_base_fw
+
+    if p.use_field_weakening && omega_e_fw > omega_e_base_fw
+
+        isd_speed_limit = p.isd_nom * omega_e_base_fw / omega_e_fw
+        isd_preliminary = clamp(isd_speed_limit, p.isd_min, p.isd_nom)
+
+        # Provisional q-axis current for the voltage-ellipse limit. The final
+        # isq reference is still calculated below using the final isd_ref.
+        lambda_preliminary = p.Lm * isd_preliminary
+        Kt_preliminary = 1.5 * p.p * k * lambda_preliminary
+        isq_preliminary_unsat = Te_ref_out / max(abs(Kt_preliminary), 1e-9)
+        isq_preliminary_max = sqrt(max(p.Is_max^2 - isd_preliminary^2, 0.0))
+        isq_preliminary = clamp(
+            isq_preliminary_unsat,
+            -isq_preliminary_max,
+            isq_preliminary_max,
+        )
+
+        sigma = 1.0 - p.Lm^2 / (p.Lss * p.Lrr)
+        voltage_radicand =
+            (p.Vs_max / (omega_e_fw * p.Lss))^2 - sigma^2 * isq_preliminary^2
+        isd_voltage_limit = sqrt(max(voltage_radicand, 0.0))
+
         isd_desired = clamp(
-            p.isd_nom * p.wm_base_fw / fw_speed,
+            min(p.isd_nom, isd_speed_limit, isd_voltage_limit),
             p.isd_min,
             p.isd_nom,
         )
