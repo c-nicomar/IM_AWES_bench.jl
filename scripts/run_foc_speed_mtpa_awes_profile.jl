@@ -223,6 +223,43 @@ wm_ref_rpm = res.wm_ref .* 60 ./ (2π)
 wm_ref_ramp_rpm = res.wm_ref_ramp .* 60 ./ (2π)
 omega_hat_load_rpm = res.omega_hat_load .* 60 ./ (2π)
 
+plot_kwargs = (;
+    xlabel = "Time [s]",
+
+    ylabels = [
+        "Speed [rpm]",
+        "Torque [N m]",
+        "dq current [A]",
+        "MTPA id candidates [A]",
+        "Power [kW]",
+        "Rotor flux [Wb]",
+    ],
+
+    labels = [
+        ["Speed ref", "Speed ref ramp", "Measured speed"],
+        [
+            "Te ref",
+            "Te achievable after current circle",
+            "Plant torque",
+            "Observed torque",
+            "AWES torque",
+            "Estimated load torque",
+        ],
+        ["id ref", "id obs", "iq ref", "iq obs"],
+        ["Pure MTPA id", "Flux-floor id", "Reserve id", "Selected id", "Ramped id ref"],
+        ["Electrical stator power", "Mechanical EM power", "External load power", "Friction loss"],
+        ["Observed rotor flux", "Lm * id ref"],
+    ],
+
+    fig = "FOC speed MTPA - AWES profile",
+    title = "FOC speed control with constrained MTPA and AWES profile",
+    yzoom = 1.20,
+    legendsize = 12,
+)
+if pkgversion(MakieControlPlots) >= v"0.1.12"
+    plot_kwargs = (; plot_kwargs..., rowgap = 6)
+end
+
 p_plot = plotx(
     res.t,
 
@@ -262,37 +299,7 @@ p_plot = plotx(
     # Rotor flux: observed and steady-state reference implied by id*
     [res.flux_r, res.lambda_ref_out];
 
-    xlabel = "Time [s]",
-
-    ylabels = [
-        "Speed [rpm]",
-        "Torque [N m]",
-        "dq current [A]",
-        "MTPA id candidates [A]",
-        "Power [kW]",
-        "Rotor flux [Wb]",
-    ],
-
-    labels = [
-        ["Speed ref", "Speed ref ramp", "Measured speed"],
-        [
-            "Te ref",
-            "Te achievable after current circle",
-            "Plant torque",
-            "Observed torque",
-            "AWES torque",
-            "Estimated load torque",
-        ],
-        ["id ref", "id obs", "iq ref", "iq obs"],
-        ["Pure MTPA id", "Flux-floor id", "Reserve id", "Selected id", "Ramped id ref"],
-        ["Electrical stator power", "Mechanical EM power", "External load power", "Friction loss"],
-        ["Observed rotor flux", "Lm * id ref"],
-    ],
-
-    fig = "FOC speed MTPA - AWES profile",
-    title = "FOC speed control with constrained MTPA and AWES profile",
-    yzoom = 1.20,
-    legendsize = 13,
+    plot_kwargs...,
 )
 
 display(p_plot)
