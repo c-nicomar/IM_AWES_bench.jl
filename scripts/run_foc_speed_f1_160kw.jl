@@ -125,9 +125,12 @@ output_dir = normpath(
 
 mkpath(output_dir)
 
-# MakieControlPlots.plotx currently fails in its internal legend-row predictor
-# when several stacked axes have legends. Build these diagnostic figures
-# directly with the GLMakie instance already loaded by MakieControlPlots.
+# Older MakieControlPlots releases could fail in the internal legend-row
+# predictor used by `plotx` when several stacked axes have legends. Toggle
+# this to false to fall back to a manual GLMakie plotter if that resurfaces
+# with the currently installed version.
+const USE_PLOTX = true
+
 const GLM = MakieControlPlots.GLMakie
 const PLOT_SCREENS = Any[]
 
@@ -179,13 +182,61 @@ function plot_channels(
     return figure
 end
 
+function make_plot(
+    x,
+    channels...;
+    xlabel,
+    ylabels,
+    labels,
+    ylims = nothing,
+    title = "",
+    fig = "",
+    legendsize = 11,
+    legend_position = :rt,
+    yzoom = 1.5,
+)
+    if USE_PLOTX
+        return MakieControlPlots.plotx(
+            x,
+            channels...;
+            xlabel,
+            ylabels,
+            labels,
+            ylims,
+            title,
+            fig,
+            legendsize,
+            legend_position,
+            yzoom,
+            disp = true,
+            new_screen = true,
+        )
+    else
+        figure = plot_channels(
+            x,
+            channels...;
+            xlabel,
+            ylabels,
+            labels,
+            ylims,
+            title,
+            fig,
+            legendsize,
+            legend_position,
+            yzoom,
+        )
+        display_in_new_screen(figure)
+        return figure
+    end
+end
+
 # ============================================================
 # Plot 1: speed and torque
 #
 # Each vector inside an argument is plotted in the same GLMakie axis.
 # ============================================================
 
-p_speed_torque = plot_channels(
+p_speed_torque = make_plot(
     t,
 
     [
@@ -229,8 +280,6 @@ p_speed_torque = plot_channels(
     yzoom = 1.5,
 )
 
-display_in_new_screen(p_speed_torque)
-
 
 
 # ============================================================
@@ -239,7 +288,7 @@ display_in_new_screen(p_speed_torque)
 
 voltage_limit = fill(res.ctrl_p.Vs_max, length(t))
 
-p_electrical = plot_channels(
+p_electrical = make_plot(
     t,
 
     [
@@ -299,8 +348,6 @@ p_electrical = plot_channels(
     yzoom = 1.5,
 )
 
-display_in_new_screen(p_electrical)
-
 # ============================================================
 # Plot 3: current magnitude, power, and saturation flags
 # ============================================================
@@ -311,7 +358,7 @@ current_limit_inner =
 current_limit_outer =
     fill(res.outer_p.Is_max, length(t))
 
-p_limits_power = plot_channels(
+p_limits_power = make_plot(
     t,
 
     [
@@ -375,8 +422,6 @@ p_limits_power = plot_channels(
     yzoom = 1.5,
 )
 
-display_in_new_screen(p_limits_power)
-
 # ============================================================
 # Plot 4: estimated synchronous speed used by field weakening
 # ============================================================
@@ -384,7 +429,7 @@ display_in_new_screen(p_limits_power)
 omega_e_base_positive = fill(omega_e_base_fw, length(t))
 omega_e_base_negative = fill(-omega_e_base_fw, length(t))
 
-p_omega_e = plot_channels(
+p_omega_e = make_plot(
     t,
 
     [
@@ -431,5 +476,4 @@ p_omega_e = plot_channels(
     yzoom = 1.5,
 )
 
-display_in_new_screen(p_omega_e)
 

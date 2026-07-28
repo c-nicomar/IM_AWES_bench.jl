@@ -292,7 +292,7 @@ p_plot = plotx(
     fig = "FOC speed MTPA - AWES profile",
     title = "FOC speed control with constrained MTPA and AWES profile",
     yzoom = 1.20,
-    legendsize = 14,
+    legendsize = 13,
 )
 
 display(p_plot)

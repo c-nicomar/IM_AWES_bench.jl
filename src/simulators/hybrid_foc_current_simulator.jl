@@ -192,7 +192,7 @@ end
 
 function load_torque_profile(
     t;
-    load_profile = :constant,
+    load_profile::Symbol = :constant,
     Tload = 0.0,
     Tload_step1 = 40.0,
     Tload_step2 = 80.0,
@@ -237,7 +237,7 @@ function simulate_foc_current_hybrid(;
     isq_ref_neg = -5.0,
 
     # Load
-    load_profile = :constant,
+    load_profile::Symbol = :constant,
     Tload = 0.0,
     Tload_step1 = 40.0,
     Tload_step2 = 80.0,
@@ -344,9 +344,6 @@ function simulate_foc_current_hybrid(;
     vs_mod_unsat_vec = Vector{Float64}(undef, N)
 
     h = Ts / plant_substeps
-
-    vsα_hold = 0.0
-    vsβ_hold = 0.0
 
     for kstep in 1:N
         t = (kstep - 1) * Ts

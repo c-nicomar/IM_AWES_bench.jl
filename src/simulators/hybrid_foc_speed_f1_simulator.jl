@@ -109,8 +109,8 @@ function simulate_foc_speed_f1_hybrid(;
     # ------------------------------------------------------------
     # External profile support
     # ------------------------------------------------------------
-    speed_reference_source = :ramp,   # :ramp or :profile
-    load_source = :internal,          # :internal or :profile
+    speed_reference_source::Symbol = :ramp,   # :ramp or :profile
+    load_source::Symbol = :internal,          # :internal or :profile
 
     profile_time = Float64[],
     profile_speed_ref_rpm = Float64[],
@@ -125,7 +125,7 @@ function simulate_foc_speed_f1_hybrid(;
     # ------------------------------------------------------------
     # Internal load profile
     # ------------------------------------------------------------
-    load_profile = :steps,
+    load_profile::Symbol = :steps,
     Tload = 0.0,
     Tload_step1 = 20.0,
     Tload_step2 = 0.0,

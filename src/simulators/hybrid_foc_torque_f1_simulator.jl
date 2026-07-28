@@ -60,7 +60,7 @@ function simulate_foc_torque_f1_hybrid(;
     Te_ref_neg = -20.0,
 
     # Load
-    load_profile = :constant,
+    load_profile::Symbol = :constant,
     Tload = 0.0,
     Tload_step1 = 40.0,
     Tload_step2 = 80.0,

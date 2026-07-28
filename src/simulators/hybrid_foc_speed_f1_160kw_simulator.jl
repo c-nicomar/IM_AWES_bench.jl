@@ -200,7 +200,7 @@ Run the 160 kW im induction machine with:
 - optional load-torque estimator.
 
 The default machine and control values come from the supplied
-`pre_kitpower_IM.m` and `IM__FOC_kitepower.slx` model.
+`pre_kitepower_IM.m` and `IM__FOC_kitepower.slx` model.
 
 ## Parameter independence
 

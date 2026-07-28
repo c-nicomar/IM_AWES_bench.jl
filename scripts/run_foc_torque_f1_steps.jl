@@ -142,7 +142,7 @@ p_plot = plotx(
     fig = "FOC torque F1",
     title = "FOC outer torque loop: mode_control=1, mode_torque=1, mode_flux=1",
     yzoom = 1.20,
-    legendsize = 10,
+    legendsize = 12,
 )
 
 display(p_plot)
