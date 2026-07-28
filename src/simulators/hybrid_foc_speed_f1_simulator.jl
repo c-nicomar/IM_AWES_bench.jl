@@ -125,7 +125,7 @@ function simulate_foc_speed_f1_hybrid(;
     # ------------------------------------------------------------
     # Internal load profile
     # ------------------------------------------------------------
-    load_profile = :steps,
+    load_profile::Symbol = :steps,
     Tload = 0.0,
     Tload_step1 = 20.0,
     Tload_step2 = 0.0,
