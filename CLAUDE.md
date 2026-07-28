@@ -27,7 +27,7 @@ bin/install              # check Julia 1.12, restore Manifest-v1.12.toml from th
 bin/run_julia            # REPL: julia -t auto --project, KMP_DUPLICATE_LIB_OK set,
                          # custom sysimage if present; defines menu() / menu2()
 bin/run_julia --nosysimage   # same, but ignore bin/sysimage.*
-bin/create_sys_image     # build bin/sysimage.* (10-20 min) via test/create_sys_image.jl
+bin/create_sys_image     # build bin/sysimage.* (20-40 min) via test/create_sys_image.jl
 ```
 
 In the REPL started by `bin/run_julia`, `menu()` lists the hybrid FOC examples and `menu2()` the ModelingToolkit ones (see [scripts/menu.jl](scripts/menu.jl), [scripts/menu2.jl](scripts/menu2.jl)). The split is deliberate: only `menu2()` scripts pull in MTK/OrdinaryDiffEq.
