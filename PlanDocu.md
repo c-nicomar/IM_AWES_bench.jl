@@ -589,7 +589,9 @@ output — it prints exactly which of repo/branch/token/event checks failed.
 
 ## 7. Checklist
 
-- [ ] `docs/Project.toml` + `docs/.gitignore` created, environment instantiates
+- [x] `docs/Project.toml` + `docs/.gitignore` created, environment instantiates
+      (`ModelingToolkit` is pinned to `=11.36.0` rather than the `"11"` range the
+      plan sketched)
 - [x] Four `README_*.md` files `git mv`-ed into `docs/src/`, internal links fixed
 - [x] `docs/src/index.md` written
 - [x] `docs/make.jl` written, extension guard passes
@@ -599,12 +601,18 @@ output — it prints exactly which of repo/branch/token/event checks failed.
       warnings beyond the expected local "skipping deployment"
 - [x] `bin/build_docs` added and executable; verified from a deleted
       `docs/build/`
-- [ ] `.github/workflows/Documenter.yml` added
-- [ ] Workflow permissions set to read/write in repository settings
+- [x] `.github/workflows/Documenter.yml` added (verbatim from Step 7; YAML parses,
+      first `.github/` file in the repo)
+- [x] Workflow permissions set to read/write in repository settings
 - [ ] First `main` build green, `gh-pages` branch created
 - [ ] Pages source set to `gh-pages` / root, `/dev/` reachable
-- [ ] `README.md` badges + links updated; `CLAUDE.md` updated
-- [ ] Docstring pass complete (29 exports); build still green
+- [x] `CLAUDE.md` updated to the `docs/src/` paths; `README.md` badges added
+      (the four in-README links stay relative until `/dev/` is verified reachable)
+- [x] Docstring pass complete — measured 2026-07-29: 36 exports, 33 documented in
+      `IM_AWES_bench` itself; the remaining 4 (`build_scalar_im_system`,
+      `simulate_scalar_im`, `build_foc_current_im_system`,
+      `simulate_foc_current_im`) are stubs documented from `ext/`, so coverage is
+      complete. Build still green
 - [ ] `v1.0.0` tagged so `/stable/` exists
 
 ---
