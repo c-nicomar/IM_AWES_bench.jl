@@ -96,6 +96,67 @@ function reset!(state::CurrentControllerDiscreteState)
     return nothing
 end
 
+"""
+    current_controller_step!(state, p; isd_ref, isq_ref, isd_med, isq_med,
+                             omega_e, lambda_rd, reset = false)
+
+Advance the discrete FOC inner current loop by one sample period `p.Ts`.
+
+This is the innermost block of the hybrid loop: it turns dq current references
+into the dq stator voltage command that is then rotated to alpha-beta and
+applied to the plant. It is called once per fixed-step iteration, after the
+outer torque or speed loop has produced `isd_ref`/`isq_ref`.
+
+`state` is mutated in place — the two integrator states `ui_d`/`ui_q` and the
+two filtered measurements `isd_filt`/`isq_filt`. The result is returned as a
+fresh `CurrentControllerDiscreteOutput`.
+
+# Arguments
+
+- `state::CurrentControllerDiscreteState`: integrator and filter state, mutated.
+- `p::CurrentControllerDiscreteParams`: machine constants, tuning, limits and
+  the four feature flags.
+- `isd_ref`, `isq_ref`: dq current references in A, before limiting.
+- `isd_med`, `isq_med`: measured dq currents in A (`med` for *medido*).
+- `omega_e`: electrical angular frequency in rad/s, used by the decoupling
+  feedforward only.
+- `lambda_rd`: d-axis rotor flux linkage in Wb, normally from the rotor-flux
+  observer.
+- `reset`: when `true`, zero both integrators and seed the filter states with
+  the present measurements, giving a bumpless start. Applied before anything
+  else in the step.
+
+# Steps
+
+1. **PI gains.** Recomputed every call from `p`: `tau_cl = ts_spec/3`,
+   `Kp = sigma_Lss/tau_cl`, `Ki = Rs/tau_cl`, and the back-calculation gain
+   `Kaw = 1/Kp`. The integrator accumulates `Ki * err * Ts`, so `Ki` carries
+   units of V/(A·s).
+2. **Measurement filter.** With `use_filter`, a one-pole low pass with
+   `alpha = Ts/(tau_f + Ts)`; otherwise the raw measurements pass through.
+3. **Reference limiting, d-axis priority.** The flux-producing axis wins: if
+   `|isd_ref| > Is_max` it is clamped and `isq_ref_lim` is forced to zero.
+   Otherwise `isq_ref` is limited to `sqrt(Is_max^2 - isd_ref_lim^2)`, so the
+   commanded current vector stays inside the `Is_max` circle.
+4. **PI on the errors**, proportional part plus stored integrator.
+5. **Feedforward decoupling**, with `use_feedforward`:
+   `vsd_ff = -omega_e*sigma_Lss*isq_filt` and
+   `vsq_ff = omega_e*sigma_Lss*isd_filt + omega_e*k*lambda_rd`, the second term
+   being the back-EMF.
+6. **Voltage saturation**, with `use_saturation`: if the unsaturated command
+   exceeds `Vs_max` in magnitude, both components are scaled by the same factor,
+   preserving direction rather than clipping per axis, and `saturado` is set.
+7. **Anti-windup**, with `use_antiwindup`: when saturated, the integrator is
+   corrected by `Kaw` times the difference between the unsaturated and
+   saturated *PI* parts, feedforward excluded.
+
+The four flags exist for development and bring-up; all default to `true`, which
+is the configuration the simulators use.
+
+See also `CurrentControllerDiscreteState`, `CurrentControllerDiscreteParams` and
+`CurrentControllerDiscreteOutput`. (These become `@ref` links once the struct
+trio is documented — see Step 5 of `PlanDocu.md`.)
+"""
 function current_controller_step!(
     state::CurrentControllerDiscreteState,
     p::CurrentControllerDiscreteParams;

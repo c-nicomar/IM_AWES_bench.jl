@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Serve the documentation locally with live reload, on http://localhost:8000.
+# Rebuilds whenever a watched file changes; Ctrl-C to stop.
+#
+# LiveServer is expected in the global environment (@v1.12) rather than in
+# docs/Project.toml, so CI does not instantiate it. It is still found here
+# because the default LOAD_PATH includes the global environment alongside the
+# --project one.
+#
+# By default servedocs() watches docs/src only. To pick up docstring edits in
+# the package itself -- which is what you want during the docstring pass --
+# swap the call below for:
+#
+#     servedocs(include_dirs = ["src", "ext"])
+#
+# Note: julia is started with the *default* system image, for the same reason
+# as in bin/build_docs. Never add -J here.
+
+set -eu
+
+if [[ $(basename $(pwd)) == "bin" ]]; then
+    cd ..
+fi
+
+export KMP_DUPLICATE_LIB_OK="TRUE"
+
+julia --startup-file=no --project=docs -e 'using LiveServer; servedocs()'
