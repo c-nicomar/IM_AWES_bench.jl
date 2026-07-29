@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Julia ${{ matrix.julia-version }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # The suite is slow by design: four testsets spawn fresh julia processes to
+    # check extension loading, and the MTK testsets pay for precompilation plus
+    # mtkcompile. A cold julia-actions/cache run is the worst case.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # bin/install hard-requires 1.12; '1' would silently drift to whatever is
+        # current. Add windows-latest / macos-latest here once the pinned manifest
+        # is known to instantiate on them.
+        julia-version: ['1.12']
+        os: [ubuntu-latest]
+    env:
+      # Exported by bin/install and bin/run_julia for a reason — carry it into CI.
+      KMP_DUPLICATE_LIB_OK: 'TRUE'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - uses: julia-actions/cache@v2
+
+      # Mirrors bin/install, minus the Julia version check (setup-julia pins it)
+      # and the scripts/ precompile (that pulls MakieControlPlots, which CI does
+      # not need). Testing the committed resolution is the point: the root compat
+      # allows ModelingToolkit "11", so a fresh resolve could pick up a breaking
+      # 11.x on an unrelated PR. If a Julia patch bump makes Pkg re-resolve off
+      # this manifest, that is acceptable — the tests still run.
+      - name: Restore the committed manifest
+        run: |
+          cp Manifest-v1.12.toml.default Manifest-v1.12.toml
+          rm -f Manifest.toml scripts/Manifest.toml test/Manifest.toml
+
+      # Not julia-actions/julia-buildpkg: it targets the root project, whose
+      # [deps] are empty. Instantiating the workspace is what develops the
+      # package into test/ through its [sources] entry.
+      - name: Instantiate the workspace
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+      - uses: julia-actions/julia-runtest@v1
+        with:
+          # The extension probes run in subprocesses that coverage would not see
+          # anyway, and instrumenting the MTK stack makes an already-slow suite
+          # much slower. There is no Codecov integration to feed.
+          coverage: false
