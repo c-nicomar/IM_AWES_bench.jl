@@ -10,10 +10,10 @@ Julia package for reproducing an induction-machine (IM) AWES ground-station benc
 2. **Scalar V/f and symbolic FOC path** — ModelingToolkit (MTK) systems for basic plant validation, living in a package extension.
 
 Documentation:
-- [docs/README_IM_AWES_bench_jl.md](docs/README_IM_AWES_bench_jl.md) — architecture, sign conventions, full description of controllers/estimators/simulators. Read before making non-trivial changes to any of them.
-- [docs/README_IM_AWES_bench_updated.md](docs/README_IM_AWES_bench_updated.md) — purpose, supported workflows, use as machine-control backend for `ElectricMachineWinch.jl`.
-- [docs/README_MTPA_INTEGRATION.md](docs/README_MTPA_INTEGRATION.md) — MTPA speed controller and its include-order constraint.
-- [docs/README_FOC_F1_160KW.md](docs/README_FOC_F1_160KW.md) — 160 kW machine case: bipolar speed tracking, field weakening, voltage/current limits.
+- [docs/src/architecture.md](docs/src/architecture.md) — architecture, sign conventions, full description of controllers/estimators/simulators. Read before making non-trivial changes to any of them.
+- [docs/src/overview.md](docs/src/overview.md) — purpose, supported workflows, use as machine-control backend for `ElectricMachineWinch.jl`.
+- [docs/src/mtpa.md](docs/src/mtpa.md) — MTPA speed controller and its include-order constraint.
+- [docs/src/foc_f1_160kw.md](docs/src/foc_f1_160kw.md) — 160 kW machine case: bipolar speed tracking, field weakening, voltage/current limits.
 - [oldplans/](oldplans/) — completed refactoring plans (package extension, Makie migration). Historical, but they record *why* the current structure looks the way it does.
 
 ## Commands
@@ -93,7 +93,7 @@ The mechanical equation used throughout plant, estimator, and feedforward code i
 ```
 J * dω/dt = Te + TL - B * ω
 ```
-i.e. both electromagnetic torque `Te` and external/load torque `TL` are positive when accelerating toward positive speed; friction `B*ω` opposes motion. Getting this backwards silently breaks load feedforward and Kalman estimator sign conventions — when adding or modifying feedforward/estimator code, cross-check against [docs/README_IM_AWES_bench_jl.md](docs/README_IM_AWES_bench_jl.md) sections 3, 9, and 11, which spell out the exact required signs (`load_ff_sign = -1.0`, Kalman `A12 = Ts/J` not `-Ts/J`, `TL_kalman_limit_positive = false` for AWES profiles with signed torque).
+i.e. both electromagnetic torque `Te` and external/load torque `TL` are positive when accelerating toward positive speed; friction `B*ω` opposes motion. Getting this backwards silently breaks load feedforward and Kalman estimator sign conventions — when adding or modifying feedforward/estimator code, cross-check against [docs/src/architecture.md](docs/src/architecture.md) sections 3, 9, and 11, which spell out the exact required signs (`load_ff_sign = -1.0`, Kalman `A12 = Ts/J` not `-Ts/J`, `TL_kalman_limit_positive = false` for AWES profiles with signed torque).
 
 ### AWES CSV profiles
 Input profiles (e.g. `profiles/delta_kite_13_ms_profiles.csv`) have columns `t_s, speed_ref_rpm, speed_ref_rad_s, torque_ref_Nm` and are linearly interpolated at each simulation timestep (Simulink-timeseries-like behavior).
