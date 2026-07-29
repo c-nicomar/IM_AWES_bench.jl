@@ -1,7 +1,6 @@
 # IM AWES Bench Julia Model
 
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://c-nicomar.github.io/IM_AWES_bench.jl/dev/)
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://c-nicomar.github.io/IM_AWES_bench.jl/stable/)
 
 Julia modelling project for reproducing the induction-machine AWES bench simulation logic from the Simulink model.
 
