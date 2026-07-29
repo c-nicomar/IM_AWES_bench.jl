@@ -1,12 +1,12 @@
 # IM\_AWES\_bench.jl
 
-Julia package for reproducing an induction-machine (IM) AWES ground-station bench
-simulation, originally built in Simulink. It provides reusable machine models,
-observers, discrete controllers, estimators, and standalone benchmark simulators
+Julia package for modelling, simulating, and testing induction-machine control strategies, providing reusable machine models, observers, discrete controllers, estimators, and standalone benchmark simulators
 for a squirrel-cage induction machine under field-oriented control (FOC).
 
-It is also the machine-control backend for `ElectricMachineWinch.jl`, which
-embeds the induction-machine model in a `KiteSimulators.jl` autopilot simulation.
+The package contains both continuous ModelingToolkit systems and discrete/hybrid controller implementations. It is also used as the machine-control backend for `ElectricMachineWinch.jl`, which integrates the induction-machine model inside a `KiteControllers.jl` autopilot simulation.
+
+As example, simulation scripts for the AWES ground-station electrical bench of "Universidad Carlos III de Madrid" are provided.
+
 
 ## Two modelling paths
 
