@@ -37,15 +37,17 @@ Each fixed-step iteration of the hybrid loop does:
 This one convention runs through the plant, the estimators, and every
 feedforward path:
 
-$$J \frac{d\omega}{dt} = T_{\mathrm{e}} + T_{\mathrm{L}} - B \omega$$
+```math
+J \frac{d\omega}{dt} = T_{\mathrm{e}} + T_{\mathrm{L}} - B \omega
+```
 
-- $\omega$ — mechanical speed of the machine, rad/s
-- $T_{\mathrm{e}}$ — electromagnetic torque, Nm
-- $T_{\mathrm{L}}$ — external or load torque, Nm
-- $B \omega$ — viscous friction, opposing motion
+- ``\omega`` — mechanical speed of the machine, rad/s
+- ``T_{\mathrm{e}}`` — electromagnetic torque, Nm
+- ``T_{\mathrm{L}}`` — external or load torque, Nm
+- ``B \omega`` — viscous friction, opposing motion
 
-Both $T_{\mathrm{e}}$ and $T_{\mathrm{L}}$ are **positive when they accelerate the shaft toward positive
-speed**; a positive $T_{\mathrm{L}}$ pulls the shaft in the positive direction rather than
+Both ``T_{\mathrm{e}}`` and ``T_{\mathrm{L}}`` are **positive when they accelerate the shaft toward positive
+speed**; a positive ``T_{\mathrm{L}}`` pulls the shaft in the positive direction rather than
 resisting it.
 
 !!! warning "Getting this backwards fails silently"
