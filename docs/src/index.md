@@ -23,16 +23,14 @@ validation. Everything symbolic lives in a package extension, not in `src/`.
 
 Each fixed-step iteration of the hybrid loop does:
 
-```text
-read plant currents / speed / angle
-  -> update rotor-flux and torque observer
-  -> optionally update load-torque Kalman estimator
-  -> update outer loop (torque or speed), if present
-  -> update inner current controller
-  -> convert the dq voltage command to alpha-beta
-  -> integrate the plant one sample period
-  -> store results
-```
+- read plant currents / speed / angle
+- update rotor-flux and torque observer
+- optionally update load-torque Kalman estimator
+- update outer loop (torque or speed), if present
+- update inner current controller
+- convert the dq voltage command to alpha-beta
+- integrate the plant one sample period
+- store results
 
 ## Mechanical sign convention
 
