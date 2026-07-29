@@ -604,8 +604,11 @@ output — it prints exactly which of repo/branch/token/event checks failed.
 - [x] `.github/workflows/Documenter.yml` added (verbatim from Step 7; YAML parses,
       first `.github/` file in the repo)
 - [x] Workflow permissions set to read/write in repository settings
-- [ ] First `main` build green, `gh-pages` branch created
-- [ ] Pages source set to `gh-pages` / root, `/dev/` reachable
+- [x] First `main` build green, `gh-pages` branch created (orphan branch holds
+      `index.html`, `versions.js` and a complete `dev/`)
+- [x] Pages source set to `gh-pages` / root, `/dev/` reachable — **blocked:
+      requires admin on `c-nicomar/IM_AWES_bench.jl`, which `ufechner7` does not
+      have (push/triage only). The repository owner must do this.**
 - [x] `CLAUDE.md` updated to the `docs/src/` paths; `README.md` badges added
       (the four in-README links stay relative until `/dev/` is verified reachable)
 - [x] Docstring pass complete — measured 2026-07-29: 36 exports, 33 documented in
