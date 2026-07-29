@@ -4,10 +4,11 @@
 # and open that page in the default browser. Rebuilds whenever a watched file
 # changes; Ctrl-C to stop.
 #
-# LiveServer is expected in the global environment (@v1.12) rather than in
+# LiveServer lives in the global environment (@v1.12) rather than in
 # docs/Project.toml, so CI does not instantiate it. It is still found here
 # because the default LOAD_PATH includes the global environment alongside the
-# --project one.
+# --project one. If it is missing, the check below adds it there -- the julia
+# call without --project resolves to that same global environment.
 #
 # launch_browser fires only after servedocs() has run make.jl once and the
 # server is listening, so the browser never lands on a dead port. LiveServer
@@ -38,5 +39,16 @@ fi
 
 export KMP_DUPLICATE_LIB_OK="TRUE"
 
+echo "Checking for LiveServer in the global environment ..."
+julia --startup-file=no -e '
+    using Pkg
+    if haskey(Pkg.project().dependencies, "LiveServer")
+        @info "LiveServer found in $(Pkg.project().path)"
+    else
+        @info "LiveServer not found, adding it to $(Pkg.project().path) ..."
+        Pkg.add("LiveServer")
+    end'
+
+echo "Serving the documentation ..."
 julia --startup-file=no --project=docs \
       -e "using LiveServer; servedocs(launch_browser = $launch_browser)"
