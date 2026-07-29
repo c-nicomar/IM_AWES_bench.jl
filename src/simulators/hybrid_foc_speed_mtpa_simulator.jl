@@ -24,6 +24,72 @@
 # ============================================================
 
 
+"""
+    simulate_foc_speed_mtpa_hybrid(; kwargs...)
+
+Run the hybrid FOC speed-control simulation with a **constrained-MTPA** outer
+loop and return the logged signals as a `NamedTuple` of equal-length vectors,
+one entry per control sample.
+
+Deliberately the twin of [`simulate_foc_speed_f1_hybrid`](@ref): same plant,
+same rotor-flux observer, same inner current controller, same load estimator,
+same speed and load profiles. The single difference is the flux policy — F1
+holds `isd` at `isd_nom` regardless of load, while
+[`outer_speed_flux_mtpa_step!`](@ref) picks `isd` per sample to minimise stator
+current for the torque being demanded, subject to a flux floor and a torque
+reserve. Running both with identical keywords is how the efficiency benefit is
+measured.
+
+# Keyword arguments
+
+Every keyword of [`simulate_foc_speed_f1_hybrid`](@ref) is accepted with the
+same meaning and the same defaults, except that the F1 field-weakening settings
+have no counterpart here. In brief: `t_end`, `Ts`, `plant_substeps`; the
+internal ramp profile `t_ramp_up_start`, `t_ramp_up_end`, `t_hold_end`,
+`t_ramp_down_end`, `wm_ref_high_rpm`; profile playback via
+`speed_reference_source`, `load_source`, `profile_time`,
+`profile_speed_ref_rpm`, `profile_load_torque_Nm`, `profile_torque_sign`; the
+internal load profile `load_profile`, `Tload`, `Tload_step1`, `Tload_step2`,
+`t_load_step1`, `t_load_step2`; load estimation `load_estimator`,
+`use_load_feedforward`, `load_ff_sign = -1.0`, `TL_kalman_R`,
+`TL_kalman_q_omega`, `TL_kalman_q_TL`, `TL_kalman_limit_positive = false`; the
+machine parameters `Rs`, `Rr`, `Lls`, `Llr`, `Lm`, `p_pairs`, `J`, `B`; the
+outer-loop limits `isd_nom`, `outer_Is_max`, `isd_min`, `Te_max`, `wm_dot_max`,
+`id_dot_max`; the inner controller `Vs_max`, `Is_max`, `use_filter`,
+`use_feedforward`, `use_saturation`, `use_antiwindup`; and the `plant_*_scale`,
+`obs_*_scale`, `ctrl_*_scale` mismatch multipliers.
+
+The keywords specific to this simulator are:
+
+- `lambda_rd_floor = 0.35`: minimum rotor flux in Wb held regardless of torque
+  demand. Without it, pure MTPA would let the flux collapse near zero torque and
+  the machine would be slow to respond. Set to `0` to disable.
+- `Te_reserve = 45.0`: torque in N·m that must stay achievable within `Is_max`
+  at all times, converted internally into a second flux floor. This is the knob
+  that trades efficiency for transient headroom.
+- `tau_f_wm = 10e-3`, `ts_wm = 500e-3`, `ts_dist_wm = 3.0`: speed filter time
+  constant and PI design times in s. Unlike the F1 simulator, these are exposed
+  here; the defaults match the MATLAB F3 controller.
+
+Mechanical sign convention is unchanged: `J*dω/dt = Te + TL - B*ω`, so a
+positive `TL` pulls toward positive speed and `load_ff_sign` stays `-1.0`.
+
+# Returned signals
+
+All the fields returned by [`simulate_foc_speed_f1_hybrid`](@ref) except the
+F1-specific field-weakening diagnostics, plus the MTPA diagnostics that show
+which constraint set the flux at each instant: `lambda_ref_out` (Wb), `Kt_isd`
+(N·m/A²), `isd_mtpa`, `isd_floor`, `isd_reserve`, `isd_desired`, `isq_max_disp`
+(all A), `Te_current_limited` (N·m) and `torque_current_limited` (flag).
+Comparing `isd_desired` against `isd_mtpa`, `isd_floor` and `isd_reserve` tells
+you directly whether the run is genuinely operating at the MTPA optimum or is
+being held off it by one of the constraints.
+
+!!! note "Include order"
+    This simulator reuses `interp_profile_linear` and the other profile-playback
+    helpers defined in `src/simulators/hybrid_foc_speed_f1_simulator.jl`, which
+    must therefore be included before this file.
+"""
 function simulate_foc_speed_mtpa_hybrid(;
     t_end = 12.0,
     Ts = 100e-6,

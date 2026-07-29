@@ -1,8 +1,10 @@
-# IM_AWES_bench.jl
+# IM\_AWES\_bench.jl
 
-Julia package for modelling, simulating, and testing induction-machine control blocks for the AWES ground-station electrical bench.
+Julia package for modelling, simulating, and testing induction-machine control strategies, providing a generic induction machine model and different estimators and controllers. 
 
-The package contains both continuous ModelingToolkit systems and discrete/hybrid controller implementations. It is also used as the machine-control backend for `ElectricMachineWinch.jl`, which integrates the induction-machine model inside a `KiteSimulators.jl` autopilot simulation.
+The package contains both continuous ModelingToolkit systems and discrete/hybrid controller implementations. It is also used as the machine-control backend for `ElectricMachineWinch.jl`, which integrates the induction-machine model inside a `KiteControllers.jl` autopilot simulation.
+
+As example, simulation scripts for the AWES ground-station electrical bench of "Universidad Carlos III de Madrid" are provided.
 
 ## Purpose
 
@@ -11,7 +13,7 @@ The package contains both continuous ModelingToolkit systems and discrete/hybrid
 The package is intended to support two workflows:
 
 1. **Standalone machine-control testing**: simulate scalar control, current-loop FOC, torque FOC, and speed FOC directly inside this package.
-2. **KiteSimulators integration**: provide validated discrete FOC blocks and machine parameters to `ElectricMachineWinch.jl`, which acts as a bridge between the electrical machine and the kite/winch mechanical simulation.
+2. **KiteControllers integration**: provide validated discrete FOC blocks and machine parameters to `ElectricMachineWinch.jl`, which acts as a bridge between the electrical machine and the kite/winch mechanical simulation.
 
 ## Main model convention
 

@@ -13,6 +13,29 @@
 #   6. computes estimated electromagnetic torque.
 # ============================================================
 
+"""
+    RotorFluxObserverDiscreteState(; kwargs...)
+
+Mutable state of the discrete rotor-flux and torque observer, advanced in place
+by [`rotor_flux_observer_step!`](@ref).
+
+The flux estimate is held in the *rotor* reference frame, where the rotor flux
+dynamics reduce to a plain first-order lag driven by the rotor-frame currents.
+That is what makes the observer two scalar filters rather than a matrix
+integration.
+
+# Fields
+
+- `lambda_rd_r`, `lambda_rq_r`: rotor flux linkage in Wb, expressed in the rotor
+  frame (trailing `_r`). Not to be confused with the `_e` quantities in the
+  output, which are in the estimated flux frame.
+- `Te_filt_speed_prev`, `Te_filt_torque_prev`: previous outputs in N·m of the
+  two independent optional torque filters. They exist so a speed loop and a
+  torque loop can consume differently smoothed versions of the same estimate.
+
+See also [`RotorFluxObserverDiscreteParams`](@ref),
+[`RotorFluxObserverDiscreteOutput`](@ref).
+"""
 Base.@kwdef mutable struct RotorFluxObserverDiscreteState
     lambda_rd_r::Float64 = 0.0
     lambda_rq_r::Float64 = 0.0
@@ -21,6 +44,40 @@ Base.@kwdef mutable struct RotorFluxObserverDiscreteState
     Te_filt_torque_prev::Float64 = 0.0
 end
 
+"""
+    RotorFluxObserverDiscreteParams(; kwargs...)
+
+Machine constants of the discrete rotor-flux and torque observer, consumed by
+[`rotor_flux_observer_step!`](@ref).
+
+These are the observer's *assumed* machine parameters. The hybrid simulators
+deliberately allow them to differ from the plant's, through their `obs_*_scale`
+keywords, which is how rotor-resistance detuning is studied: `tau_r` depends on
+`Rr`, and a wrong `tau_r` biases the estimated flux angle and hence the whole
+field-oriented decomposition.
+
+# Fields
+
+- `Lm`: magnetizing inductance in H, the gain from rotor-frame current to rotor
+  flux.
+- `Lss`: stator self-inductance in H, used only for the stator flux output.
+- `Lrr`: rotor self-inductance in H. Sets the coupling coefficient `k = Lm/Lrr`
+  in the torque estimate.
+- `tau_r`: rotor time constant `Lrr/Rr` in s, the pole of both flux filters and
+  the gain of the slip estimate. Internally floored at `Ts`.
+- `p`: pole pairs, converting mechanical angle and speed to electrical.
+- `Ts`: sample time in s.
+- `tau_Te_speed`: time constant in s of the torque filter intended for a speed
+  loop. `0` (the default) passes `Te_raw` through unfiltered.
+- `tau_Te_torque`: same for the torque-loop consumer. `0` disables it.
+- `flux_eps`: small flux magnitude in Wb below which the angle is not computed
+  (`theta_e` is held at `0`), and which is added to the denominator of the slip
+  estimate. It keeps the observer finite while the machine is still unfluxed at
+  startup.
+
+See also [`RotorFluxObserverDiscreteState`](@ref),
+[`RotorFluxObserverDiscreteOutput`](@ref).
+"""
 Base.@kwdef struct RotorFluxObserverDiscreteParams
     Lm::Float64 = 0.04084
     Lss::Float64 = 0.04512
@@ -35,6 +92,47 @@ Base.@kwdef struct RotorFluxObserverDiscreteParams
     flux_eps::Float64 = 1e-6
 end
 
+"""
+    RotorFluxObserverDiscreteOutput(; kwargs...)
+
+Result of one [`rotor_flux_observer_step!`](@ref) call, returned fresh each
+sample.
+
+This is the block that makes the rest of the loop field-oriented: `theta_e` is
+the angle everything else rotates by, and `i_sd_e`/`i_sq_e` are the dq currents
+the controllers regulate. A trailing `_e` means "in the estimated flux frame",
+`_r` means "in the rotor frame", and `alpha`/`beta` means the stationary frame.
+
+# Fields
+
+- `lambda_rd_e`, `lambda_rq_e`: rotor flux linkage in Wb in the estimated flux
+  frame. By construction `lambda_rq_e` is ~0 and `lambda_rd_e` carries the whole
+  flux — how close it stays to zero is a direct check on the observer.
+- `theta_e`: estimated rotor flux angle in rad, wrapped to `[0, 2π)`. Used for
+  the Park and inverse-Park transforms in the loop.
+- `Te_raw`: estimated electromagnetic torque in N·m, `1.5*p*k*lambda_rd_e*i_sq_e`.
+  Positive accelerates toward positive speed, per `J*dω/dt = Te + TL - B*ω`.
+- `Te_filt_speed`, `Te_filt_torque`: the two independently filtered torque
+  estimates in N·m. Equal to `Te_raw` when the corresponding `tau_Te_*` is `0`.
+- `flux_r_mod`: rotor flux magnitude in Wb in the stationary frame.
+- `i_sd_e`, `i_sq_e`: stator currents in A projected onto the estimated flux
+  frame — the flux-producing and torque-producing components fed back to
+  [`current_controller_step!`](@ref).
+- `psi_sd_e`, `psi_sq_e`: stator flux linkage in Wb in the same frame.
+- `flux_s_mod`: stator flux magnitude in Wb.
+- `i_alpha`, `i_beta`: the stationary-frame input currents in A, passed through
+  for logging.
+- `i_sd_r`, `i_sq_r`: stator currents in A in the rotor frame, the inputs to the
+  two flux filters.
+- `lambda_r_alpha`, `lambda_r_beta`: rotor flux in Wb back in the stationary
+  frame, from which `theta_e` is taken.
+- `omega_sl`: estimated slip speed in electrical rad/s.
+- `omega_e`: estimated synchronous electrical speed in rad/s, `p*omega_m +
+  omega_sl`. This is what the current controller's decoupling feedforward and
+  the F1 field-weakening logic should be fed.
+
+See also [`RotorFluxObserverDiscreteParams`](@ref).
+"""
 Base.@kwdef struct RotorFluxObserverDiscreteOutput
     lambda_rd_e::Float64 = 0.0
     lambda_rq_e::Float64 = 0.0
@@ -75,6 +173,60 @@ function reset!(state::RotorFluxObserverDiscreteState)
     return nothing
 end
 
+"""
+    rotor_flux_observer_step!(state, p; i_alpha, i_beta, theta_m, omega_m,
+                              reset = false)
+
+Advance the discrete rotor-flux and torque observer by one sample period `p.Ts`.
+
+This is the first block of every hybrid iteration: it turns measured
+stationary-frame currents and the mechanical angle into the flux angle
+`theta_e`, the dq currents, the flux estimate and the torque estimate that all
+downstream blocks consume. It is the Julia counterpart of the MATLAB function
+`obs_flujo_L1_alfabeta`.
+
+It is a *current-model* observer — it uses currents and rotor position only, no
+voltage measurement — so it works down to zero speed but inherits the accuracy
+of the assumed `tau_r`.
+
+`state` is mutated in place; the result is a fresh
+[`RotorFluxObserverDiscreteOutput`](@ref).
+
+# Arguments
+
+- `state::RotorFluxObserverDiscreteState`: rotor-frame flux estimate and the two
+  torque-filter memories, mutated.
+- `p::RotorFluxObserverDiscreteParams`: assumed machine constants.
+- `i_alpha`, `i_beta`: measured stator currents in A in the stationary
+  alpha-beta frame.
+- `theta_m`: mechanical rotor angle in rad. Multiplied by `p.p` to get the
+  electrical rotor angle; it need not be wrapped.
+- `omega_m`: mechanical rotor speed in rad/s, used only for `omega_e`.
+- `reset`: when `true`, zero the flux estimate and both torque filters before
+  stepping.
+
+# Steps
+
+1. **Stationary → rotor frame.** Rotate the currents by `theta_r = p*theta_m`.
+2. **Flux filters.** In the rotor frame the rotor flux obeys
+   `tau_r*dλ/dt + λ = Lm*i`, discretised as
+   `λ ← (1-β)*λ + β*Lm*i` with `β = Ts/tau_r` clamped to `[0,1]`. Two scalars,
+   one per axis.
+3. **Rotor → stationary frame**, giving `lambda_r_alpha`/`lambda_r_beta` and
+   hence `theta_e = atan(lambda_r_beta, lambda_r_alpha)`, wrapped to `[0, 2π)`.
+   Below `flux_eps` the angle is held at `0` rather than taken from noise.
+4. **Stationary → estimated flux frame.** Project currents and fluxes onto
+   `theta_e`, producing `i_sd_e`, `i_sq_e`, `lambda_rd_e` and `lambda_rq_e`.
+5. **Torque and stator flux.** `Te_raw = 1.5*p*k*lambda_rd_e*i_sq_e` with
+   `k = Lm/Lrr`, then the two optional one-pole torque filters.
+6. **Slip and synchronous speed.** `omega_sl = (Lm*i_sq_e)/(tau_r*lambda_rd_e)`,
+   with `flux_eps` guarding the denominator, and
+   `omega_e = p*omega_m + omega_sl`.
+
+See also [`current_controller_step!`](@ref), which consumes `i_sd_e`, `i_sq_e`,
+`omega_e` and `lambda_rd_e`, and [`load_torque_kalman_step!`](@ref), which
+consumes the torque estimate.
+"""
 function rotor_flux_observer_step!(
     state::RotorFluxObserverDiscreteState,
     p::RotorFluxObserverDiscreteParams;

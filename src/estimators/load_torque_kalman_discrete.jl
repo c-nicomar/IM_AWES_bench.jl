@@ -27,6 +27,31 @@
 #   y = ω
 # ============================================================
 
+"""
+    LoadTorqueKalmanState(; kwargs...)
+
+Mutable state of the load-torque Kalman estimator, advanced in place by
+[`load_torque_kalman_step!`](@ref): the two-element state vector
+`x = [omega_hat, TL_hat]` plus its 2×2 covariance, stored element by element to
+keep the block allocation-free.
+
+# Fields
+
+- `omega_hat`: estimated mechanical speed in rad/s. Also the measured quantity,
+  so this one is well determined.
+- `TL_hat`: estimated load torque in N·m, positive when it accelerates toward
+  positive speed (`J*dω/dt = Te + TL - B*ω`). This is the quantity of interest —
+  it is never measured, only inferred from how the speed deviates from what the
+  applied torque alone would produce.
+- `P11`, `P12`, `P21`, `P22`: error covariance entries. `P22` starts large
+  (`100.0`) because the initial load torque is genuinely unknown, which lets the
+  filter converge quickly at startup.
+- `initialized`: `false` until the first step. The first call therefore
+  self-initialises, seeding `omega_hat` with the measured speed even if `reset`
+  was not passed.
+
+See also [`LoadTorqueKalmanParams`](@ref), [`LoadTorqueKalmanOutput`](@ref).
+"""
 Base.@kwdef mutable struct LoadTorqueKalmanState
     omega_hat::Float64 = 0.0
     TL_hat::Float64 = 0.0
@@ -39,6 +64,37 @@ Base.@kwdef mutable struct LoadTorqueKalmanState
     initialized::Bool = false
 end
 
+"""
+    LoadTorqueKalmanParams(; kwargs...)
+
+Model and tuning of the load-torque Kalman estimator, consumed by
+[`load_torque_kalman_step!`](@ref).
+
+`J` and `B` define the mechanical model the filter inverts, so an error in them
+shows up directly as a bias in `TL_hat`. The three noise variances are the only
+real tuning knobs: the ratio `q_TL/R` sets how fast the estimate tracks a
+changing load versus how much measurement noise it lets through.
+
+# Fields
+
+- `J`: total inertia in kg·m², motor plus load.
+- `B`: viscous friction coefficient in N·m·s/rad.
+- `Ts`: sample time in s.
+- `R`: speed measurement noise variance in (rad/s)². Raise it for a noisy
+  encoder; non-positive values fall back to `0.01`.
+- `q_omega`: process noise variance on the speed state. Absorbs unmodelled
+  mechanical effects; non-positive values fall back to `0.1`.
+- `q_TL`: process noise variance on the load-torque state. The load is modelled
+  as a random walk (`TL[k+1] = TL[k]`), so this is what allows it to move at
+  all — larger means faster tracking and more noise. Non-positive values fall
+  back to `6.0`.
+- `limit_positive`: when `true`, clamp `TL_hat` at zero, as the MATLAB original
+  did for a load that could only brake. **Set this to `false` for AWES
+  profiles**, where the tether torque genuinely changes sign between reel-out
+  and reel-in; leaving it `true` would silently discard half the signal.
+
+See also [`LoadTorqueKalmanState`](@ref), [`LoadTorqueKalmanOutput`](@ref).
+"""
 Base.@kwdef struct LoadTorqueKalmanParams
     J::Float64 = 0.2685 + 0.1
     B::Float64 = 0.01298
@@ -55,6 +111,26 @@ Base.@kwdef struct LoadTorqueKalmanParams
     limit_positive::Bool = true
 end
 
+"""
+    LoadTorqueKalmanOutput(; kwargs...)
+
+Result of one [`load_torque_kalman_step!`](@ref) call, returned fresh each
+sample.
+
+# Fields
+
+- `TL_hat`: estimated load torque in N·m, positive when it accelerates toward
+  positive speed. This is the value to feed to a speed loop's `TL_est`.
+- `omega_hat`: estimated mechanical speed in rad/s after the measurement update.
+- `innovation`: measurement residual in rad/s, `omega - omega_pred`. The natural
+  health check — it should look like zero-mean noise. A persistent offset means
+  `J`, `B` or `Ts` do not match the real mechanics.
+- `K1`, `K2`: the two Kalman gains applied to the innovation this sample. `K2`
+  is the one that drives `TL_hat`; watching it settle shows the filter
+  converging.
+
+See also [`LoadTorqueKalmanParams`](@ref).
+"""
 Base.@kwdef struct LoadTorqueKalmanOutput
     TL_hat::Float64 = 0.0
     omega_hat::Float64 = 0.0
@@ -82,6 +158,58 @@ function reset!(
     return nothing
 end
 
+"""
+    load_torque_kalman_step!(st, p; omega, Te, reset = false)
+
+Advance the load-torque Kalman estimator by one sample period `p.Ts` and return
+the current estimate of the unmeasured load torque.
+
+Julia counterpart of the MATLAB function `l3_kalman`. The load torque is treated
+as a second state driven by a random walk, so it can be reconstructed from the
+speed measurement and the known applied torque:
+
+```
+ω[k+1]  = (1 - B*Ts/J)*ω[k] + (Ts/J)*TL[k] + (Ts/J)*Te[k]
+TL[k+1] = TL[k]
+y       = ω
+```
+
+which is the discrete Euler form of `J*dω/dt = Te + TL - B*ω`. Note the sign
+that follows from it: the coupling from `TL` into the speed state is `+Ts/J`,
+not `-Ts/J`, because a positive load torque accelerates toward positive speed
+in this convention. Getting that backwards makes the estimate converge to the
+negative of the true load, which then silently reverses the feedforward that
+consumes it.
+
+`st` is mutated in place; the result is a fresh
+[`LoadTorqueKalmanOutput`](@ref).
+
+# Arguments
+
+- `st::LoadTorqueKalmanState`: state vector and covariance, mutated.
+- `p::LoadTorqueKalmanParams`: mechanical model and noise tuning.
+- `omega`: measured mechanical speed in rad/s.
+- `Te`: applied electromagnetic torque in N·m — the known input. In the hybrid
+  loop this is the observer's torque estimate, not a measurement.
+- `reset`: when `true`, reinitialise the filter with `omega_hat = omega`,
+  `TL_hat = 0` and the default covariance. This also happens automatically on
+  the first call, since `st.initialized` starts `false`.
+
+# Steps
+
+1. **Predict** the state through the model above and propagate the covariance,
+   adding `q_omega` and `q_TL`.
+2. **Update** with the speed measurement: `S = P11 + R`, gains `K1 = P11/S` and
+   `K2 = P21/S`, correction by `innovation = omega - omega_pred`.
+3. **Clamp**, if `p.limit_positive`, `TL_hat` at zero. Leave this off for signed
+   AWES torque profiles.
+4. **Symmetrise** the covariance, averaging `P12` and `P21`, to keep it from
+   drifting apart numerically over long runs.
+
+Both speed outer loops accept the result as their `TL_est` argument — see
+[`outer_speed_flux_f1_step!`](@ref) and [`outer_speed_flux_mtpa_step!`](@ref).
+Feedforward only engages when their `use_load_feedforward` is `true`.
+"""
 function load_torque_kalman_step!(
     st::LoadTorqueKalmanState,
     p::LoadTorqueKalmanParams;

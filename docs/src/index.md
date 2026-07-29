@@ -1,4 +1,4 @@
-# IM_AWES_bench.jl
+# IM\_AWES\_bench.jl
 
 Julia package for reproducing an induction-machine (IM) AWES ground-station bench
 simulation, originally built in Simulink. It provides reusable machine models,
