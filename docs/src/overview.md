@@ -1,8 +1,10 @@
-# IM_AWES_bench.jl
+# IM\_AWES\_bench.jl
 
-Julia package for modelling, simulating, and testing induction-machine control blocks for the AWES ground-station electrical bench.
+Julia package for modelling, simulating, and testing induction-machine control strategies, providing a generic induction machine model and different estimators and controllers. 
 
-The package contains both continuous ModelingToolkit systems and discrete/hybrid controller implementations. It is also used as the machine-control backend for `ElectricMachineWinch.jl`, which integrates the induction-machine model inside a `KiteSimulators.jl` autopilot simulation.
+The package contains both continuous ModelingToolkit systems and discrete/hybrid controller implementations. It is also used as the machine-control backend for `ElectricMachineWinch.jl`, which integrates the induction-machine model inside a `KiteControllers.jl` autopilot simulation.
+
+As example, simulation scripts for the AWES ground-station electrical bench of "Universidad Carlos III de Madrid" are provided.
 
 ## Purpose
 
@@ -11,23 +13,23 @@ The package contains both continuous ModelingToolkit systems and discrete/hybrid
 The package is intended to support two workflows:
 
 1. **Standalone machine-control testing**: simulate scalar control, current-loop FOC, torque FOC, and speed FOC directly inside this package.
-2. **KiteSimulators integration**: provide validated discrete FOC blocks and machine parameters to `ElectricMachineWinch.jl`, which acts as a bridge between the electrical machine and the kite/winch mechanical simulation.
+2. **KiteControllers integration**: provide validated discrete FOC blocks and machine parameters to `ElectricMachineWinch.jl`, which acts as a bridge between the electrical machine and the kite/winch mechanical simulation.
 
 ## Main model convention
 
 The induction-machine plant uses stationary alpha-beta electrical variables and the following mechanical sign convention:
 
-```text
-J*dωm/dt = Te + TL - B*ωm
+```math
+J \frac{d\omega_\mathrm{m}}{dt} = T_\mathrm{e} + T_\mathrm{L} - B \omega_\mathrm{m}
 ```
 
 where:
 
-- `ωm` is machine mechanical speed `[rad/s]`.
-- `Te` is electromagnetic torque `[Nm]`.
-- `TL` or `Tload` is external load torque `[Nm]`.
-- `B*ωm` is viscous friction torque.
-- Positive `TL` pulls the shaft toward positive speed.
+- ``\omega_\mathrm{m}`` is machine mechanical speed ``[\mathrm{rad/s}]``.
+- ``T_\mathrm{e}`` is electromagnetic torque ``[\mathrm{Nm}]``.
+- ``T_\mathrm{L}`` (also written `Tload`) is external load torque ``[\mathrm{Nm}]``.
+- ``B \omega_\mathrm{m}`` is viscous friction torque.
+- Positive ``T_\mathrm{L}`` pulls the shaft toward positive speed.
 
 This convention is used consistently in the plant, the speed controller load feedforward, and the load-torque Kalman estimator.
 
@@ -37,32 +39,48 @@ This convention is used consistently in the plant, the speed controller load fee
 IM_AWES_bench.jl/
 ├── Project.toml
 ├── README.md
-└── src/
-    ├── IM_AWES_bench.jl
+├── bin/                                  # install, REPL launcher, sysimage, docs
+├── profiles/                             # AWES speed/torque reference CSV profiles
+├── scripts/                              # runnable simulation examples (own project)
+├── test/                                 # test suite (own project)
+├── docs/                                 # this documentation
+├── src/                                  # MTK-free hybrid FOC path
+│   ├── IM_AWES_bench.jl
+│   ├── controls/
+│   │   └── FOC/
+│   │       ├── current_controller_discrete.jl
+│   │       ├── outer_torque_flux_f1_discrete.jl
+│   │       ├── outer_speed_flux_f1_discrete.jl
+│   │       └── outer_speed_flux_mtpa_discrete.jl
+│   ├── estimators/
+│   │   ├── rotor_flux_observer_discrete.jl
+│   │   └── load_torque_kalman_discrete.jl
+│   └── simulators/
+│       ├── hybrid_foc_current_simulator.jl
+│       ├── hybrid_foc_torque_f1_simulator.jl
+│       ├── hybrid_foc_speed_f1_simulator.jl
+│       ├── hybrid_foc_speed_mtpa_simulator.jl
+│       └── hybrid_foc_speed_f1_160kw_simulator.jl
+└── ext/                                  # ModelingToolkit extension (symbolic path)
+    ├── IM_AWES_benchMTKExt.jl
     ├── profiles/
     │   ├── frequency_profiles.jl
     │   └── load_profiles.jl
     ├── controls/
     │   ├── scalar_vf_control.jl
     │   └── FOC/
-    │       ├── current_controller.jl
-    │       ├── current_controller_discrete.jl
-    │       ├── outer_torque_flux_f1_discrete.jl
-    │       └── outer_speed_flux_f1_discrete.jl
+    │       └── current_controller.jl
     ├── estimators/
-    │   ├── rotor_flux_observer.jl
-    │   ├── rotor_flux_observer_discrete.jl
-    │   └── load_torque_kalman_discrete.jl
+    │   └── rotor_flux_observer.jl
     ├── plants/
     │   └── induction_machine_alpha_beta.jl
-    ├── systems/
-    │   ├── scalar_im_system.jl
-    │   └── foc_current_im_system.jl
-    └── simulators/
-        ├── hybrid_foc_current_simulator.jl
-        ├── hybrid_foc_torque_f1_simulator.jl
-        └── hybrid_foc_speed_f1_simulator.jl
+    └── systems/
+        ├── scalar_im_system.jl
+        └── foc_current_im_system.jl
 ```
+
+The package `[deps]` are empty: everything symbolic lives in `ext/`, which is loaded only
+once both `ModelingToolkit` and `OrdinaryDiffEq` are present.
 
 ## Main components
 
@@ -71,7 +89,7 @@ IM_AWES_bench.jl/
 The plant is implemented in:
 
 ```text
-src/plants/induction_machine_alpha_beta.jl
+ext/plants/induction_machine_alpha_beta.jl
 ```
 
 The plant inputs are:
@@ -94,14 +112,18 @@ The main plant outputs are:
 
 The plant computes the electromagnetic torque as:
 
-```text
-Te = 1.5*p*(ψsα*isβ - ψsβ*isα)
+```math
+T_\mathrm{e} = \frac{3}{2} p \left( \psi_{\mathrm{s}\alpha} i_{\mathrm{s}\beta} - \psi_{\mathrm{s}\beta} i_{\mathrm{s}\alpha} \right)
 ```
+
+where ``p`` is the number of pole pairs, ``\psi_{\mathrm{s}\alpha}``, ``\psi_{\mathrm{s}\beta}``
+are the stator flux linkages and ``i_{\mathrm{s}\alpha}``, ``i_{\mathrm{s}\beta}`` the stator
+currents in the stationary alpha-beta frame.
 
 and includes the mechanical equation:
 
-```text
-J*dωm/dt = Te + Tload_cmd - B*ωm
+```math
+J \frac{d\omega_\mathrm{m}}{dt} = T_\mathrm{e} + T_\mathrm{load,cmd} - B \omega_\mathrm{m}
 ```
 
 ### Discrete rotor-flux observer
@@ -180,7 +202,7 @@ Implemented in:
 src/controls/FOC/outer_speed_flux_f1_discrete.jl
 ```
 
-This is the main controller used by `ElectricMachineWinch.jl` during KiteSimulators integration.
+This is the main controller used by `ElectricMachineWinch.jl` during KiteControllers integration.
 
 It receives:
 
@@ -419,7 +441,7 @@ pathof(IM_AWES_bench)
 fieldnames(IM_AWES_bench.OuterSpeedFluxF1Params)
 ```
 
-For the KiteSimulators integration, `fieldnames(IM_AWES_bench.OuterSpeedFluxF1Params)` should include:
+For the KiteControllers integration, `fieldnames(IM_AWES_bench.OuterSpeedFluxF1Params)` should include:
 
 ```julia
 :use_field_weakening

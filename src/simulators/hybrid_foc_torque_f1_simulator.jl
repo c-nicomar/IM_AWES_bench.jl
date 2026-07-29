@@ -47,6 +47,79 @@ function torque_reference_steps(
     end
 end
 
+"""
+    simulate_foc_torque_f1_hybrid(; kwargs...)
+
+Run the hybrid FOC **torque-control** simulation — F1 constant-flux outer torque
+loop plus the inner current loop — and return the logged signals as a
+`NamedTuple` of equal-length vectors, one entry per control sample.
+
+Each iteration runs [`rotor_flux_observer_step!`](@ref), then
+[`outer_torque_flux_f1_step!`](@ref) to turn the commanded torque into dq current
+references, then [`current_controller_step!`](@ref), and finally integrates the
+plant one sample period with fixed-step RK4 while the voltage command is held.
+
+Speed is not controlled here. With the default `Tload = 0` the machine simply
+accelerates under the commanded torque, which is what makes the torque steps easy
+to read; add a load to hold it near a working point.
+
+# Keyword arguments
+
+**Simulation**
+
+- `t_end = 12.0`: simulated duration in s.
+- `Ts = 100e-6`: control sample time in s.
+- `plant_substeps = 1`: RK4 substeps per control period.
+
+**Torque reference profile** — zero, then `Te_ref_pos` from `t_Te_pos_step`,
+`Te_ref_neg` from `t_Te_neg_step`, back to zero at `t_Te_zero_step`.
+
+- `t_Te_pos_step = 2.0`, `t_Te_neg_step = 6.0`, `t_Te_zero_step = 10.0`: step
+  times in s.
+- `Te_ref_pos = 20.0`, `Te_ref_neg = -20.0`: levels in N·m. The outer loop still
+  slew-limits them at `Te_dot_max`, so the plant sees ramps, not steps.
+
+**Load** — `load_profile` (`:constant` or `:steps`), `Tload`, `Tload_step1`,
+`Tload_step2`, `t_load_step1`, `t_load_step2`, exactly as in
+[`simulate_foc_current_hybrid`](@ref). Positive torque accelerates toward
+positive speed.
+
+**Machine nominal parameters** — `Rs`, `Rr`, `Lls`, `Llr`, `Lm`, `p_pairs`, `J`,
+`B`. These define the *design point*: the observer, outer loop and current
+controller are all built from them.
+
+**Outer loop** — `isd_nom = 23.04579328` (A), `outer_Is_max = 40.0` (A),
+`isd_min = 5.0` (A), `Te_max = 124.0419647` (N·m), `Te_dot_max = 500.0` (N·m/s),
+`id_dot_max = 600.0` (A/s). See [`OuterTorqueFluxF1Params`](@ref). Note
+`outer_Is_max` is separate from the inner `Is_max`, so the two limiters can be
+studied independently.
+
+**Inner current controller** — `Vs_max = 310.0` (V), `Is_max = 40.0` (A), and the
+flags `use_filter`, `use_feedforward`, `use_saturation`, `use_antiwindup`.
+
+**Parameter mismatch multipliers** — all default to `1.0`, meaning plant,
+observer and controller agree. Perturb them to study detuning: `plant_Rs_scale`,
+`plant_Rr_scale`, `plant_Lls_scale`, `plant_Llr_scale`, `plant_Lm_scale`,
+`plant_J_scale`, `plant_B_scale` change the *simulated machine*;
+`obs_Lm_scale`, `obs_Lss_scale`, `obs_Lrr_scale`, `obs_tau_r_scale` change what
+the observer assumes; `ctrl_Rs_scale`, `ctrl_sigma_Lss_scale`, `ctrl_k_scale`
+change what the current controller assumes. For example
+`plant_Rr_scale = 1.30` with `obs_tau_r_scale = 1.0` simulates a rotor 30 %
+hotter than the observer believes.
+
+# Returned signals
+
+`t` (s), `Te_ref_ext` and `Te_ref_out` (N·m, commanded versus slew- and
+limit-shaped), the current references `isd_ref`/`isq_ref` and their limited
+versions `isd_ref_lim`/`isq_ref_lim` (A), achieved `isd`/`isq` (A), voltages
+`vsd`/`vsq` and `vsα`/`vsβ` (V), `speed_rpm` and `omega_m`, `torque` (plant) and
+`torque_obs` (observer) in N·m, `flux_r` (Wb), `theta_e` (rad), `omega_e`
+(rad/s), `Tload` (N·m), `isα`/`isβ` (A), the saturation flags
+`saturation_current`, `sat_isd`, `sat_isq`, `sat_Te`, and `vs_mod_unsat` (V).
+
+See also [`simulate_foc_speed_f1_hybrid`](@ref), which wraps the same F1 flux
+policy in a speed loop.
+"""
 function simulate_foc_torque_f1_hybrid(;
     t_end = 12.0,
     Ts = 100e-6,

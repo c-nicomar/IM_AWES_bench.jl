@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Build the Documenter.jl documentation into docs/build/.
+#
+# The docs environment (docs/Project.toml) is deliberately NOT a member of the
+# workspace declared in the root Project.toml, so it resolves on its own and
+# instantiate is cheap to repeat. Its Manifest.toml is gitignored.
+#
+# Note: julia is started with the *default* system image here. bin/sysimage.*
+# bakes in ModelingToolkit at whatever version the workspace manifest pins,
+# which need not match the version the docs environment resolved -- and the
+# extension-loading checks are sensitive to that in the same way the test suite
+# is. Never add -J to the call below.
+#
+# The first build after a dependency change pays for ModelingToolkit
+# precompilation and takes several minutes; later ones are much quicker.
+
+set -eu
+
+if [[ $(basename $(pwd)) == "bin" ]]; then
+    cd ..
+fi
+
+export KMP_DUPLICATE_LIB_OK="TRUE"
+
+echo "Instantiating the docs environment ..."
+julia --startup-file=no --project=docs -e 'using Pkg; Pkg.instantiate()'
+
+echo "Building the documentation ..."
+julia --startup-file=no --project=docs docs/make.jl
+
+echo "Done. Open docs/build/index.html"

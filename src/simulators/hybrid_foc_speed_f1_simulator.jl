@@ -92,6 +92,117 @@ function interp_profile_linear(t, time_vec, value_vec)
 end
 
 
+"""
+    simulate_foc_speed_f1_hybrid(; kwargs...)
+
+Run the hybrid FOC **speed-control** simulation — F1 constant-flux outer speed
+loop plus the inner current loop — and return the logged signals as a
+`NamedTuple` of equal-length vectors, one entry per control sample.
+
+This is the workhorse of the package. Each iteration runs
+[`rotor_flux_observer_step!`](@ref), optionally
+[`load_torque_kalman_step!`](@ref), then [`outer_speed_flux_f1_step!`](@ref) and
+[`current_controller_step!`](@ref), and integrates the plant one sample period
+with fixed-step RK4 while the voltage command is held.
+
+Beyond the internal ramp/step profiles it can play back recorded AWES speed and
+tether-torque profiles (see `profiles/`), linearly interpolated at each timestep
+the way a Simulink timeseries would be.
+
+# Keyword arguments
+
+**Simulation**
+
+- `t_end = 12.0`: simulated duration in s.
+- `Ts = 100e-6`: control sample time in s.
+- `plant_substeps = 1`: RK4 substeps per control period.
+
+**Internal speed reference profile** — used when
+`speed_reference_source = :ramp`: flat until `t_ramp_up_start`, linear up to
+`wm_ref_high_rpm` by `t_ramp_up_end`, held until `t_hold_end`, back to zero by
+`t_ramp_down_end`.
+
+- `t_ramp_up_start = 1.0`, `t_ramp_up_end = 4.0`, `t_hold_end = 7.0`,
+  `t_ramp_down_end = 10.0`: times in s.
+- `wm_ref_high_rpm = 500.0`: plateau speed in rpm.
+
+**External profile playback**
+
+- `speed_reference_source = :ramp`: `:ramp` for the internal profile above,
+  `:profile` to interpolate `profile_speed_ref_rpm` over `profile_time`.
+- `load_source = :internal`: `:internal` for the internal load profile,
+  `:profile` to interpolate `profile_load_torque_Nm`.
+- `profile_time`, `profile_speed_ref_rpm`, `profile_load_torque_Nm`: the CSV
+  columns, as `Vector{Float64}`. `profile_time` must be strictly increasing and
+  the value vectors must match its length; values outside the range are held at
+  the endpoints. Validated up front, with an error naming the offending vector.
+- `profile_torque_sign = 1.0`: use `1.0` when the CSV torque already follows this
+  package's convention (positive `TL` pulls toward positive speed), `-1.0` to
+  flip it.
+
+Set `wm_dot_max` very high (e.g. `1e6`) when playing back a recorded speed
+profile, otherwise the outer loop's own slew limiter reshapes it.
+
+**Internal load profile** — `load_profile = :steps` (or `:constant`), `Tload`,
+`Tload_step1 = 20.0`, `Tload_step2 = 0.0`, `t_load_step1 = 5.0`,
+`t_load_step2 = 8.0`. Torques in N·m under `J*dω/dt = Te + TL - B*ω`.
+
+**Load estimation and feedforward**
+
+- `load_estimator = :none`: `:none` supplies no estimate, `:actual` cheats by
+  feeding back the true load (useful as an upper bound on what feedforward can
+  buy), `:kalman` runs [`load_torque_kalman_step!`](@ref) on the measured speed
+  and the observed torque.
+- `use_load_feedforward = false`: whether the speed loop actually uses that
+  estimate. Estimating and using are separate switches, so the estimate can be
+  logged without being acted on.
+- `load_ff_sign = -1.0`: required by the mechanical convention — a positive load
+  torque already accelerates the machine, so compensating it means
+  `Te_ff = J*dωref/dt + B*ωref - TL_est`. Do not flip this without re-reading
+  section 3 of `docs/src/architecture.md`.
+- `TL_kalman_R = 0.01`, `TL_kalman_q_omega = 0.1`, `TL_kalman_q_TL = 6.0`:
+  filter tuning. See [`LoadTorqueKalmanParams`](@ref).
+- `TL_kalman_limit_positive = false`: kept `false` here because AWES tether
+  torque changes sign between reel-out and reel-in; clamping it at zero would
+  discard half the profile.
+
+**Machine nominal parameters** — `Rs`, `Rr`, `Lls`, `Llr`, `Lm`, `p_pairs`, `J`,
+`B`, defining the design point for observer, outer loop and current controller.
+
+**Outer loop** — `isd_nom = 23.04579328` (A), `outer_Is_max = 40.0` (A),
+`isd_min = 5.0` (A), `Te_max = 124.0419647` (N·m), `wm_dot_max = 100.0`
+(rad/s²), `id_dot_max = 600.0` (A/s). See [`OuterSpeedFluxF1Params`](@ref).
+Field weakening and the speed PI tuning are not exposed here and stay at their
+defaults — field weakening is exercised by
+[`simulate_foc_speed_f1_im_160kw`](@ref).
+
+**Inner current controller** — `Vs_max = 310.0` (V), `Is_max = 40.0` (A), and
+`use_filter`, `use_feedforward`, `use_saturation`, `use_antiwindup`. `Vs_max` is
+shared with the outer loop.
+
+**Parameter mismatch multipliers** — all `1.0` by default: `plant_Rs_scale`,
+`plant_Rr_scale`, `plant_Lls_scale`, `plant_Llr_scale`, `plant_Lm_scale`,
+`plant_J_scale`, `plant_B_scale` perturb the simulated machine;
+`obs_Lm_scale`, `obs_Lss_scale`, `obs_Lrr_scale`, `obs_tau_r_scale` perturb the
+observer's assumptions; `ctrl_Rs_scale`, `ctrl_sigma_Lss_scale`, `ctrl_k_scale`
+perturb the current controller's.
+
+# Returned signals
+
+`t` (s); the speed loop's `wm_ref`, `wm_ref_ramp`, `wm_filt`, `e_wm` (rad/s) and
+its torque split `Te_ref_out`, `Te_PI`, `Te_ff` (N·m); current references
+`isd_ref`/`isq_ref` with limited `isd_ref_lim`/`isq_ref_lim` and achieved
+`isd`/`isq` (A); voltages `vsd`/`vsq`, `vsα`/`vsβ` (V); `speed_rpm`, `omega_m`;
+`torque` (plant) and `torque_obs` (observer) in N·m; `flux_r` (Wb), `theta_e`
+(rad), `omega_e` (rad/s); `Tload`, `TL_est` (N·m) and `omega_hat_load` (rad/s)
+from the estimator; stationary `isα`/`isβ` (A); three-phase `ia`/`ib`/`ic` (A)
+and `va`/`vb`/`vc` (V); the power breakdown `Pelec`, `Pmech`, `Pload`, `Pfric`
+(W), which is what the efficiency scripts consume; the flags
+`saturation_current`, `sat_isd`, `sat_isq`, `sat_Te`; and `vs_mod_unsat` (V).
+
+See also [`simulate_foc_speed_mtpa_hybrid`](@ref), which is deliberately the same
+simulation with a different flux policy, so the two can be compared run for run.
+"""
 function simulate_foc_speed_f1_hybrid(;
     t_end = 12.0,
     Ts = 100e-6,

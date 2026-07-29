@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Serve the documentation locally with live reload, on http://localhost:8000,
+# and open that page in the default browser. Rebuilds whenever a watched file
+# changes; Ctrl-C to stop.
+#
+# LiveServer lives in the global environment (@v1.12) rather than in
+# docs/Project.toml, so CI does not instantiate it. It is still found here
+# because the default LOAD_PATH includes the global environment alongside the
+# --project one. If it is missing, the check below adds it there -- the julia
+# call without --project resolves to that same global environment.
+#
+# launch_browser fires only after servedocs() has run make.jl once and the
+# server is listening, so the browser never lands on a dead port. LiveServer
+# shells out to xdg-open on Linux, open on macOS, start on Windows/WSL, and
+# swallows any failure -- the server keeps running even if no browser opens.
+# Pass --no-browser to skip it, e.g. when working over SSH.
+#
+# By default servedocs() watches docs/src only. To pick up docstring edits in
+# the package itself -- which is what you want during the docstring pass --
+# add include_dirs to the call below:
+#
+#     servedocs(launch_browser = true, include_dirs = ["src", "ext"])
+#
+# Note: julia is started with the *default* system image, for the same reason
+# as in bin/build_docs. Never add -J here.
+
+set -eu
+
+if [[ $(basename $(pwd)) == "bin" ]]; then
+    cd ..
+fi
+
+launch_browser="true"
+
+if [[ "${1:-}" == "--no-browser" ]]; then
+    launch_browser="false"
+fi
+
+export KMP_DUPLICATE_LIB_OK="TRUE"
+
+echo "Checking for LiveServer in the global environment ..."
+julia --startup-file=no -e '
+    using Pkg
+    if haskey(Pkg.project().dependencies, "LiveServer")
+        @info "LiveServer found in $(Pkg.project().path)"
+    else
+        @info "LiveServer not found, adding it to $(Pkg.project().path) ..."
+        Pkg.add("LiveServer")
+    end'
+
+echo "Serving the documentation ..."
+julia --startup-file=no --project=docs \
+      -e "using LiveServer; servedocs(launch_browser = $launch_browser)"

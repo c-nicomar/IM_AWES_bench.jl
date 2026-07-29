@@ -221,6 +221,70 @@ function inverse_park_voltage(vsd, vsq, theta_e)
     return vsα, vsβ
 end
 
+"""
+    simulate_foc_current_hybrid(; kwargs...)
+
+Run the hybrid FOC **current-loop** simulation and return the logged signals as
+a `NamedTuple` of equal-length vectors, one entry per control sample.
+
+This is the simplest of the hybrid simulators and the right place to start when
+validating the inner loop: there is no outer loop at all, dq current references
+come straight from a step profile, and the speed is whatever the resulting
+torque and load produce. Each iteration runs the rotor-flux observer, then
+[`current_controller_step!`](@ref), converts the dq voltage command to
+alpha-beta, holds it, and integrates the plant one sample period with fixed-step
+RK4.
+
+# Keyword arguments
+
+**Simulation**
+
+- `t_end = 12.0`: simulated duration in s.
+- `Ts = 100e-6`: control sample time in s. Also the plant integration step
+  unless `plant_substeps > 1`.
+- `plant_substeps = 1`: RK4 substeps per control period. Raise it to confirm the
+  result is not integration-limited while keeping the controller rate fixed.
+
+**Current reference steps** — `isd_ref` steps to `isd_ref_mag` at `t_id_step`,
+then `isq_ref` steps to `isq_ref_pos` at `t_iq_pos_step`, to `isq_ref_neg` at
+`t_iq_neg_step`, and back to zero at `t_iq_zero_step`.
+
+- `t_id_step = 1.0`, `t_iq_pos_step = 3.0`, `t_iq_neg_step = 6.0`,
+  `t_iq_zero_step = 9.0`: step times in s.
+- `isd_ref_mag = 5.0`, `isq_ref_pos = 5.0`, `isq_ref_neg = -5.0`: levels in A.
+
+**Load**
+
+- `load_profile = :constant`: `:constant` holds `Tload`; `:steps` applies `0`,
+  then `Tload_step1` from `t_load_step1`, then `Tload_step2` from
+  `t_load_step2`. Any other value raises an error.
+- `Tload = 0.0`, `Tload_step1 = 40.0`, `Tload_step2 = 80.0`: torques in N·m,
+  positive when accelerating toward positive speed (`J*dω/dt = Te + TL - B*ω`).
+- `t_load_step1 = 6.0`, `t_load_step2 = 8.0`: step times in s.
+
+**Machine** — `Rs`, `Rr`, `Lls`, `Llr`, `Lm`, `p_pairs`, `J`, `B`. Used for both
+the plant and, in derived form (`sigma_Lss`, `k = Lm/Lrr`, `tau_r = Lrr/Rr`),
+the observer and controller. Unlike the torque and speed simulators, this one
+has no `*_scale` mismatch knobs — plant and controller always agree.
+
+**Controller** — `Vs_max = 310.0` (V), `Is_max = 40.0` (A), and the four feature
+flags `use_filter`, `use_feedforward`, `use_saturation`, `use_antiwindup`, all
+`true`. See [`CurrentControllerDiscreteParams`](@ref).
+
+# Returned signals
+
+`t` (s), the references `isd_ref`/`isq_ref` and their limited versions
+`isd_ref_lim`/`isq_ref_lim` (A), the achieved `isd`/`isq` (A, from the observer),
+the voltage command as `vsd`/`vsq` and `vsα`/`vsβ` (V), `speed_rpm` and
+`omega_m` (rpm, rad/s), `torque` (N·m, from the plant) alongside `torque_obs`
+(the observer's estimate — comparing the two is the point of this run),
+`flux_r` (Wb), `theta_e` (rad), `omega_e` (rad/s), `Tload` (N·m), the stationary
+currents `isα`/`isβ` (A), plus `saturation` (`1.0` while the voltage limit is
+active) and `vs_mod_unsat` (V).
+
+See also [`simulate_foc_torque_f1_hybrid`](@ref) to add a torque outer loop, and
+[`simulate_foc_speed_f1_hybrid`](@ref) for closed-loop speed control.
+"""
 function simulate_foc_current_hybrid(;
     t_end = 12.0,
     Ts = 100e-6,

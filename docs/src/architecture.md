@@ -1,4 +1,4 @@
-# IM_AWES_bench_jl
+# IM\_AWES\_bench_jl
 
 Julia simulation project for building and testing induction-machine control structures for AWES ground-station studies.
 
@@ -725,7 +725,7 @@ Pload < 0  external torque extracts mechanical power from the shaft
 ## 17. Running simulations
 
 The dedicated 160 kW induction-machine FOC F1 test is described in
-[`README_FOC_F1_160KW.md`](README_FOC_F1_160KW.md).
+[the 160 kW FOC F1 case](foc_f1_160kw.md).
 
 From the project root, start Julia:
 
