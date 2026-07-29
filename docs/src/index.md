@@ -118,10 +118,3 @@ Input profiles such as `profiles/delta_kite_13_ms_profiles.csv` carry the column
 `t_s`, `speed_ref_rpm`, `speed_ref_rad_s` and `torque_ref_Nm`. They are linearly
 interpolated at each simulation timestep, matching how a Simulink timeseries
 source behaves.
-
-## Contents
-
-```@contents
-Pages = ["overview.md", "architecture.md", "mtpa.md", "foc_f1_160kw.md"]
-Depth = 2
-```
