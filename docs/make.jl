@@ -32,6 +32,7 @@ makedocs(;
         "Architecture"       => "architecture.md",
         "MTPA integration"   => "mtpa.md",
         "160 kW FOC F1 case" => "foc_f1_160kw.md",
+        "Developer guide"    => "developer_guide.md",
         "API" => [
             "Package"       => "api/package.md",
             "Controllers"   => "api/controllers.md",
