@@ -18,7 +18,7 @@ code moves under you.
   `menu2.jl`, and `Project.toml`.
 - **The package has an empty `[deps]`.** `Project.toml` declares only
   `[weakdeps]` `ModelingToolkit` / `OrdinaryDiffEq` and the
-  `IM_AWES_benchMTKExt` extension. `CSV` and `DataFrames` are dependencies of
+  `InductionMachineDrivesMTKExt` extension. `CSV` and `DataFrames` are dependencies of
   `scripts/Project.toml`, **not** of the package.
   *Consequence:* none of the shared code proposed here can live in `src/`
   without adding hard dependencies and undoing the zero-dep design established
@@ -123,7 +123,7 @@ A machine-rating change currently means editing eight files. Also
   differing only in the example list and the `2` suffix on `EXAMPLES`/
   `options`/`example_menu`.
 - The 4-line `Pkg.activate` preamble is in all 15 files. **Leave it.** It has to
-  run before `using IM_AWES_bench`, and it is what makes each script runnable
+  run before `using InductionMachineDrives`, and it is what makes each script runnable
   standalone. Do not try to factor this out.
 
 ## Phases

@@ -289,7 +289,7 @@ end
 
 # The `build_scalar_im_model` alias lives in the main module now. An extension
 # cannot introduce a new binding into its parent's namespace, and the alias is
-# exported from there — see src/IM_AWES_bench.jl.
+# exported from there — see src/InductionMachineDrives.jl.
 
 
 """

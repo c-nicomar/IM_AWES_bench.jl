@@ -8,7 +8,7 @@
 # or
 #     julia -t auto test/create_sys_image.jl
 #
-# IM_AWES_bench itself is deliberately *not* baked into the image: it is the
+# InductionMachineDrives itself is deliberately *not* baked into the image: it is the
 # package under development and must stay editable (Revise) without a rebuild.
 
 using Pkg
@@ -37,7 +37,7 @@ const SYSIMAGE_PATH = joinpath(BIN, "sysimage." * dlext)
 # simulation ends up in the image. Every step is guarded: a workload that
 # fails should degrade the image, not abort the build.
 const WORKLOAD = """
-using IM_AWES_bench
+using InductionMachineDrives
 using ModelingToolkit
 using OrdinaryDiffEq
 using MakieControlPlots
@@ -81,7 +81,7 @@ Pkg.activate(; temp = true)
 Pkg.add("PackageCompiler")
 using PackageCompiler
 
-workload_file = joinpath(tempdir(), "im_awes_bench_sysimage_workload.jl")
+workload_file = joinpath(tempdir(), "induction_machine_drives_sysimage_workload.jl")
 write(workload_file, WORKLOAD)
 
 mkpath(BIN)

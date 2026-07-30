@@ -7,7 +7,7 @@ using REPL.TerminalMenus: RadioMenu, request
 
 # Menu of the ModelingToolkit examples, the counterpart of menu.jl. Every script
 # listed here calls one of the symbolic system builders, which live in the
-# IM_AWES_benchMTKExt package extension, so the first run pays for loading
+# InductionMachineDrivesMTKExt package extension, so the first run pays for loading
 # ModelingToolkit and OrdinaryDiffEq.
 const EXAMPLES2 = [
     "run_scalar_im.jl",                          # scalar V/f, constant frequency

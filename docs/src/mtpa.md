@@ -3,7 +3,7 @@
 Add the files to the repository using this layout:
 
 ```text
-IM_AWES_bench.jl/
+InductionMachineDrives.jl/
 ├── scripts/
 │   └── run_foc_speed_mtpa_awes_profile.jl
 ├── src/
@@ -17,7 +17,7 @@ IM_AWES_bench.jl/
     └── test_foc_speed_mtpa_simulator.jl
 ```
 
-Then apply the edits shown in `IM_AWES_bench_mtpa_integration.patch`.
+Then apply the edits shown in `InductionMachineDrives_mtpa_integration.patch`.
 
 ## Run the AWES example
 
@@ -62,7 +62,7 @@ sampling period, and AWES input profile.
 
 `hybrid_foc_speed_mtpa_simulator.jl` reuses the profile interpolation helpers
 defined in `hybrid_foc_speed_f1_simulator.jl`. Therefore, the F1 simulator must
-remain included first in `src/IM_AWES_bench.jl`.
+remain included first in `src/InductionMachineDrives.jl`.
 
 ## Tests
 

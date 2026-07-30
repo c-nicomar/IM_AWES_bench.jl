@@ -8,7 +8,7 @@ As example, simulation scripts for the AWES ground-station electrical bench of "
 
 ## Purpose
 
-`IM_AWES_bench.jl` provides reusable induction-machine models, observers, controllers, estimators, and standalone benchmark simulators. The current focus is a squirrel-cage induction machine controlled with field-oriented control (FOC), including speed-mode and torque-mode outer loops.
+`InductionMachineDrives.jl` provides reusable induction-machine models, observers, controllers, estimators, and standalone benchmark simulators. The current focus is a squirrel-cage induction machine controlled with field-oriented control (FOC), including speed-mode and torque-mode outer loops.
 
 The package is intended to support two workflows:
 
@@ -36,7 +36,7 @@ This convention is used consistently in the plant, the speed controller load fee
 ## Package organization
 
 ```text
-IM_AWES_bench.jl/
+InductionMachineDrives.jl/
 ├── Project.toml
 ├── README.md
 ├── bin/                                  # install, REPL launcher, sysimage, docs
@@ -45,7 +45,7 @@ IM_AWES_bench.jl/
 ├── test/                                 # test suite (own project)
 ├── docs/                                 # this documentation
 ├── src/                                  # MTK-free hybrid FOC path
-│   ├── IM_AWES_bench.jl
+│   ├── InductionMachineDrives.jl
 │   ├── controls/
 │   │   └── FOC/
 │   │       ├── current_controller_discrete.jl
@@ -62,7 +62,7 @@ IM_AWES_bench.jl/
 │       ├── hybrid_foc_speed_mtpa_simulator.jl
 │       └── hybrid_foc_speed_f1_160kw_simulator.jl
 └── ext/                                  # ModelingToolkit extension (symbolic path)
-    ├── IM_AWES_benchMTKExt.jl
+    ├── InductionMachineDrivesMTKExt.jl
     ├── profiles/
     │   ├── frequency_profiles.jl
     │   └── load_profiles.jl
@@ -329,14 +329,14 @@ This simulator supports:
 The top-level module exports the main simulation functions and reusable controller/observer types:
 
 The hybrid simulators and the discrete controller/observer types are available
-from a bare `using IM_AWES_bench`. The two ModelingToolkit system builders,
+from a bare `using InductionMachineDrives`. The two ModelingToolkit system builders,
 `simulate_scalar_im` and `simulate_foc_current_im`, live in a package extension
 and need **both** ModelingToolkit and OrdinaryDiffEq loaded — Julia triggers an
 extension only once every package in its trigger list is present. Calling one
 without them raises a `MethodError` reporting zero methods.
 
 ```julia
-using IM_AWES_bench                   # hybrid simulators, discrete blocks
+using InductionMachineDrives                   # hybrid simulators, discrete blocks
 using ModelingToolkit, OrdinaryDiffEq # + the MTK system builders
 
 simulate_scalar_im
@@ -369,7 +369,7 @@ outer_speed_flux_f1_step!
 ## Example: speed FOC test
 
 ```julia
-using IM_AWES_bench
+using InductionMachineDrives
 
 res = simulate_foc_speed_f1_hybrid(
     t_end = 12.0,
@@ -407,7 +407,7 @@ sat_Te
 
 ## Relationship with ElectricMachineWinch.jl
 
-`IM_AWES_bench.jl` should remain the package that owns the electrical-machine control logic.
+`InductionMachineDrives.jl` should remain the package that owns the electrical-machine control logic.
 
 `ElectricMachineWinch.jl` should remain a bridge package. It imports this package and calls:
 
@@ -436,12 +436,12 @@ a full Julia restart is recommended. `Revise.jl` may update function bodies, but
 To verify that the correct local package is being used:
 
 ```julia
-using IM_AWES_bench
-pathof(IM_AWES_bench)
-fieldnames(IM_AWES_bench.OuterSpeedFluxF1Params)
+using InductionMachineDrives
+pathof(InductionMachineDrives)
+fieldnames(InductionMachineDrives.OuterSpeedFluxF1Params)
 ```
 
-For the KiteControllers integration, `fieldnames(IM_AWES_bench.OuterSpeedFluxF1Params)` should include:
+For the KiteControllers integration, `fieldnames(InductionMachineDrives.OuterSpeedFluxF1Params)` should include:
 
 ```julia
 :use_field_weakening

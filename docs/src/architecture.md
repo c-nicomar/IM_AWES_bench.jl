@@ -14,9 +14,9 @@ The current focus is the second path: a discrete FOC control structure with spee
 ## 1. Current folder structure
 
 ```text
-IM_AWES_bench_jl/
+InductionMachineDrives_jl/
 ├── docs/
-│   └── README_IM_AWES_bench_jl.md
+│   └── README_InductionMachineDrives_jl.md
 ├── profiles/
 │   └── delta_kite_13_ms_profiles.csv
 ├── results/
@@ -67,7 +67,7 @@ IM_AWES_bench_jl/
     ├── systems/
     │   ├── foc_current_im_system.jl
     │   └── scalar_im_system.jl
-    └── IM_AWES_bench_jl.jl
+    └── InductionMachineDrives_jl.jl
 ```
 
 ---
@@ -77,7 +77,7 @@ IM_AWES_bench_jl/
 The main module file is:
 
 ```text
-src/IM_AWES_bench_jl.jl
+src/InductionMachineDrives_jl.jl
 ```
 
 This file includes all submodules/files and exports the main simulation functions.

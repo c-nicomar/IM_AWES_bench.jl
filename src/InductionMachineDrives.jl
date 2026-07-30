@@ -1,5 +1,5 @@
 """
-    IM_AWES_bench
+    InductionMachineDrives
 
 Reproduction of an induction-machine (IM) AWES ground-station bench simulation,
 originally a Simulink model. It offers two modelling paths.
@@ -27,11 +27,11 @@ mutates the state and returns a fresh output
 [`outer_speed_flux_f1_step!`](@ref), [`outer_speed_flux_mtpa_step!`](@ref)).
 
 **Scalar V/f and symbolic FOC path** — ModelingToolkit systems used for basic
-plant validation. These live in the `IM_AWES_benchMTKExt` package extension and
+plant validation. These live in the `InductionMachineDrivesMTKExt` package extension and
 only acquire methods once *both* triggers are loaded:
 
 ```julia
-using ModelingToolkit, OrdinaryDiffEq, IM_AWES_bench
+using ModelingToolkit, OrdinaryDiffEq, InductionMachineDrives
 ```
 
 Calling [`build_scalar_im_system`](@ref), [`simulate_scalar_im`](@ref),
@@ -53,13 +53,13 @@ accelerate the machine toward positive speed, while friction `B*ω` opposes
 motion. A positive `TL` therefore *helps* positive acceleration, which is why
 load feedforward enters the speed loop with a negative sign.
 """
-module IM_AWES_bench
+module InductionMachineDrives
 
 # ============================================================
 # ModelingToolkit surface
 # ============================================================
 #
-# The symbolic model builders live in ext/IM_AWES_benchMTKExt.jl and load only
+# The symbolic model builders live in ext/InductionMachineDrivesMTKExt.jl and load only
 # when ModelingToolkit and OrdinaryDiffEq are both present in the session. These
 # stubs exist so the names can be declared and exported from here: a package
 # extension can add *methods* to a function its parent already declares, but it

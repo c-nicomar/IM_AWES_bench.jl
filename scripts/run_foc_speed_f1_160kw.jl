@@ -12,7 +12,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
     Pkg.activate(joinpath(@__DIR__))
 end
 
-using IM_AWES_bench
+using InductionMachineDrives
 using MakieControlPlots
 using Printf
 using Statistics

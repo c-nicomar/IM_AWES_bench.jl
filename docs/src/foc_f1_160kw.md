@@ -19,7 +19,7 @@ The implementation consists of:
   figure export.
 
 The specialized simulator and its two profile functions are included and
-exported by `src/IM_AWES_bench.jl`:
+exported by `src/InductionMachineDrives.jl`:
 
 ```julia
 simulate_foc_speed_f1_im_160kw

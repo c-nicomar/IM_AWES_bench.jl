@@ -1,4 +1,4 @@
-name = "IM_AWES_bench"
+name = "InductionMachineDrives"
 uuid = "d85c8359-f9b8-4611-8006-e67b7a824205"
 version = "1.0.0"
 authors = ["Carolina Nicolás <canicola@ing.uc3m.es> and contributors"]
@@ -13,7 +13,7 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 
 [extensions]
-IM_AWES_benchMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]
+InductionMachineDrivesMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]
 
 [compat]
 ModelingToolkit = "11"

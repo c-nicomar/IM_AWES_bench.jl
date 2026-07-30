@@ -4,7 +4,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
 end
 
 using Test
-using IM_AWES_bench
+using InductionMachineDrives
 
 # ============================================================
 # Progress reporting
@@ -79,8 +79,8 @@ const PROBE_PRELUDE = """
     nmeth(f) = length(methods(f))
     report(tag) = println(
         tag, " mtk=", loaded("ModelingToolkit"), " ode=", loaded("OrdinaryDiffEq"),
-        " scalar=", nmeth(IM_AWES_bench.build_scalar_im_system),
-        " foc=", nmeth(IM_AWES_bench.build_foc_current_im_system),
+        " scalar=", nmeth(InductionMachineDrives.build_scalar_im_system),
+        " foc=", nmeth(InductionMachineDrives.build_foc_current_im_system),
     )
 """
 
@@ -95,9 +95,9 @@ function parse_report(out, tag)
     )
 end
 
-@testset "IM_AWES_bench" begin
+@testset "InductionMachineDrives" begin
 
-    progress("starting IM_AWES_bench test suite")
+    progress("starting InductionMachineDrives test suite")
 
     # ========================================================
     # Hybrid simulators: the MTK-free fast path
@@ -136,14 +136,14 @@ end
     # Extension loading
     # ========================================================
     #
-    # The whole point of the MTK extension: a bare `using IM_AWES_bench` must
+    # The whole point of the MTK extension: a bare `using InductionMachineDrives` must
     # stay free of the symbolic and solver stacks. If these fail, the package
     # has quietly reacquired a hard dependency on ModelingToolkit.
 
     @testset "bare load pulls in no symbolic stack" begin
         progress("extension check 1/4: bare load (spawns a fresh julia)")
         r = probe(PROBE_PRELUDE * """
-            using IM_AWES_bench
+            using InductionMachineDrives
             report("BARE")
         """)
         @test r.ok
@@ -161,7 +161,7 @@ end
     @testset "ModelingToolkit alone does not trigger the extension" begin
         progress("extension check 2/4: MTK alone (fresh julia, loads MTK)")
         r = probe(PROBE_PRELUDE * """
-            using IM_AWES_bench
+            using InductionMachineDrives
             using ModelingToolkit
             report("MTKONLY")
         """)
@@ -175,7 +175,7 @@ end
     @testset "both triggers load the extension" begin
         progress("extension check 3/4: both triggers (fresh julia, loads MTK + OrdinaryDiffEq)")
         r = probe(PROBE_PRELUDE * """
-            using IM_AWES_bench
+            using InductionMachineDrives
             using ModelingToolkit
             using OrdinaryDiffEq
             report("WITHMTK")
@@ -194,7 +194,7 @@ end
     @testset "build_scalar_im_model alias" begin
         progress("extension check 4/4: build_scalar_im_model alias (fresh julia)")
         r = probe("""
-            using IM_AWES_bench, ModelingToolkit, OrdinaryDiffEq
+            using InductionMachineDrives, ModelingToolkit, OrdinaryDiffEq
             println("ALIAS ", build_scalar_im_model === build_scalar_im_system,
                     " ", length(methods(build_scalar_im_model)))
         """)

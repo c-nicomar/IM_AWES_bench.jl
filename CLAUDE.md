@@ -18,7 +18,7 @@ Documentation:
 
 ## Commands
 
-Julia **1.12 is required** (`bin/install` enforces it). This is a Julia workspace: `Project.toml` `[workspace] projects = ["scripts", "test"]`, each with its own `Project.toml` sourcing `IM_AWES_bench` from `..` via `[sources]`.
+Julia **1.12 is required** (`bin/install` enforces it). This is a Julia workspace: `Project.toml` `[workspace] projects = ["scripts", "test"]`, each with its own `Project.toml` sourcing `InductionMachineDrives` from `..` via `[sources]`.
 
 ```bash
 bin/install              # check Julia 1.12, restore Manifest-v1.12.toml from the
@@ -53,29 +53,29 @@ Scripts write CSV output to `results/` (gitignored) and plot with `MakieControlP
 ## Architecture
 
 ### Zero-dependency core plus MTK extension
-The package `[deps]` is **empty**. `ModelingToolkit` and `OrdinaryDiffEq` are `[weakdeps]` triggering the `IM_AWES_benchMTKExt` extension in `ext/`. Everything symbolic lives there; `src/` is MTK-free.
+The package `[deps]` is **empty**. `ModelingToolkit` and `OrdinaryDiffEq` are `[weakdeps]` triggering the `InductionMachineDrivesMTKExt` extension in `ext/`. Everything symbolic lives there; `src/` is MTK-free.
 
 ```julia
-using IM_AWES_bench                                    # hybrid simulators only
-using ModelingToolkit, OrdinaryDiffEq, IM_AWES_bench   # + symbolic system builders
+using InductionMachineDrives                                    # hybrid simulators only
+using ModelingToolkit, OrdinaryDiffEq, InductionMachineDrives   # + symbolic system builders
 ```
 
 Both triggers are required — Julia loads an extension only once *every* package in the trigger list is present, and `OrdinaryDiffEq` is not optional because the `simulate_*` functions default to `Rodas5P()` and call `solve`. `using ModelingToolkit` alone leaves the builders at zero methods, which is the intended signal; a `MethodError` listing no methods means a trigger is missing, not that the function is broken.
 
 Consequences to respect when changing things:
-- An extension **cannot create a binding in its parent**. `build_scalar_im_system`, `simulate_scalar_im`, `build_foc_current_im_system`, `simulate_foc_current_im` are declared as empty stubs in [src/IM_AWES_bench.jl](src/IM_AWES_bench.jl) and only *get methods* from the extension. Same for the `build_scalar_im_model` backward-compatible alias, which is a `const` in the main module.
+- An extension **cannot create a binding in its parent**. `build_scalar_im_system`, `simulate_scalar_im`, `build_foc_current_im_system`, `simulate_foc_current_im` are declared as empty stubs in [src/InductionMachineDrives.jl](src/InductionMachineDrives.jl) and only *get methods* from the extension. Same for the `build_scalar_im_model` backward-compatible alias, which is a `const` in the main module.
 - Do not add a hard dependency to the package `Project.toml` to share code. `CSV`/`DataFrames` belong to `scripts/`; shared script code belongs in `scripts/`, not `src/`.
-- Equation builders in `ext/` write `D(x) ~ ...` relying on the `D_nounits as D` import at the top of `ext/IM_AWES_benchMTKExt.jl`. Moving a builder out of that module without carrying the import fails at parse time.
+- Equation builders in `ext/` write `D(x) ~ ...` relying on the `D_nounits as D` import at the top of `ext/InductionMachineDrivesMTKExt.jl`. Moving a builder out of that module without carrying the import fails at parse time.
 - `test/runtests.jl` pins this contract; if those testsets fail, the package has quietly reacquired a hard MTK dependency.
 
 ### Module layout
 
-`src/` — MTK-free hybrid path, all included in fixed order by [src/IM_AWES_bench.jl](src/IM_AWES_bench.jl):
+`src/` — MTK-free hybrid path, all included in fixed order by [src/InductionMachineDrives.jl](src/InductionMachineDrives.jl):
 - `src/controls/FOC/` — discrete inner current controller plus three outer-loop variants: F1 constant-flux torque, F1 constant-flux speed, MTPA speed with field weakening.
 - `src/estimators/` — discrete rotor-flux/torque observer and a load-torque Kalman estimator.
 - `src/simulators/` — hybrid simulators stepping the hand-written plant derivative alongside the discrete blocks at a fixed sample time (current, torque-F1, speed-F1, speed-MTPA, speed-F1-160kW).
 
-`ext/` — symbolic path, included by `ext/IM_AWES_benchMTKExt.jl`:
+`ext/` — symbolic path, included by `ext/InductionMachineDrivesMTKExt.jl`:
 - `ext/profiles/` — frequency and load reference profile builders.
 - `ext/controls/` — `scalar_vf_control.jl` (V/f) and `FOC/current_controller.jl`.
 - `ext/plants/induction_machine_alpha_beta.jl` — symbolic IM model in stationary alpha-beta coordinates.
@@ -100,4 +100,4 @@ Input profiles (e.g. `profiles/delta_kite_13_ms_profiles.csv`) have columns `t_s
 
 ## System image
 
-`bin/create_sys_image` runs [test/create_sys_image.jl](test/create_sys_image.jl), which bakes `ModelingToolkit`, `OrdinaryDiffEq`, `MakieControlPlots`, `CSV`, `DataFrames` into `bin/sysimage.*` (gitignored) using the `scripts/` environment plus a representative precompile workload. `IM_AWES_bench` itself is deliberately **not** baked in, so it stays editable under Revise without a rebuild. Rebuild after dependency version changes; delete the file (or pass `--nosysimage`) to fall back to the stock image.
+`bin/create_sys_image` runs [test/create_sys_image.jl](test/create_sys_image.jl), which bakes `ModelingToolkit`, `OrdinaryDiffEq`, `MakieControlPlots`, `CSV`, `DataFrames` into `bin/sysimage.*` (gitignored) using the `scripts/` environment plus a representative precompile workload. `InductionMachineDrives` itself is deliberately **not** baked in, so it stays editable under Revise without a rebuild. Rebuild after dependency version changes; delete the file (or pass `--nosysimage`) to fall back to the stock image.

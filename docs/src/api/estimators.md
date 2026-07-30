@@ -1,7 +1,7 @@
 # Estimators
 
 ```@meta
-CurrentModule = IM_AWES_bench
+CurrentModule = InductionMachineDrives
 ```
 
 Both estimators are discrete and are stepped once per fixed-step iteration, the
@@ -16,13 +16,13 @@ observer before the outer loop and the Kalman estimator alongside it.
 ## Rotor-flux and torque observer
 
 ```@autodocs
-Modules = [IM_AWES_bench]
+Modules = [InductionMachineDrives]
 Pages   = ["estimators/rotor_flux_observer_discrete.jl"]
 ```
 
 ## Load-torque Kalman estimator
 
 ```@autodocs
-Modules = [IM_AWES_bench]
+Modules = [InductionMachineDrives]
 Pages   = ["estimators/load_torque_kalman_discrete.jl"]
 ```

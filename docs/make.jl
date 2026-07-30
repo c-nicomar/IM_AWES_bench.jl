@@ -1,26 +1,26 @@
 using Documenter
-using IM_AWES_bench
+using InductionMachineDrives
 
-# Both extension triggers, so IM_AWES_benchMTKExt loads and the docstrings that
+# Both extension triggers, so InductionMachineDrivesMTKExt loads and the docstrings that
 # live in ext/ become visible to Documenter. OrdinaryDiffEq is not optional:
 # Julia loads an extension only once every package in its trigger list is
 # present, and the simulate_* functions default to Rodas5P() and call solve.
 using ModelingToolkit, OrdinaryDiffEq
 
-const MTKExt = Base.get_extension(IM_AWES_bench, :IM_AWES_benchMTKExt)
+const MTKExt = Base.get_extension(InductionMachineDrives, :InductionMachineDrivesMTKExt)
 MTKExt === nothing && error(
-    "IM_AWES_benchMTKExt did not load. Both ModelingToolkit and OrdinaryDiffEq " *
+    "InductionMachineDrivesMTKExt did not load. Both ModelingToolkit and OrdinaryDiffEq " *
     "must be present, or half the public surface documents as zero-method stubs."
 )
 
-DocMeta.setdocmeta!(IM_AWES_bench, :DocTestSetup, :(using IM_AWES_bench); recursive = true)
+DocMeta.setdocmeta!(InductionMachineDrives, :DocTestSetup, :(using InductionMachineDrives); recursive = true)
 
 makedocs(;
-    modules  = [IM_AWES_bench, MTKExt],
+    modules  = [InductionMachineDrives, MTKExt],
     authors  = "Carolina Nicolás <canicola@ing.uc3m.es> and contributors",
-    sitename = "IM_AWES_bench.jl",
+    sitename = "InductionMachineDrives.jl",
     format = Documenter.HTML(;
-        canonical  = "https://c-nicomar.github.io/IM_AWES_bench.jl",
+        canonical  = "https://c-nicomar.github.io/InductionMachineDrives.jl",
         edit_link  = "main",
         # Clean URLs in CI; file:// friendly locally.
         prettyurls = get(ENV, "CI", "false") == "true",
@@ -53,7 +53,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo      = "github.com/c-nicomar/IM_AWES_bench.jl",
+    repo      = "github.com/c-nicomar/InductionMachineDrives.jl",
     devbranch = "main",
     push_preview = true,
 )

@@ -65,8 +65,8 @@ Julia **1.12 is required**. The two MTK-backed model builders are gated behind a
 package extension:
 
 ```julia
-using IM_AWES_bench                                    # hybrid FOC simulators only
-using ModelingToolkit, OrdinaryDiffEq, IM_AWES_bench   # + the symbolic system builders
+using InductionMachineDrives                                    # hybrid FOC simulators only
+using ModelingToolkit, OrdinaryDiffEq, InductionMachineDrives   # + the symbolic system builders
 ```
 
 Both triggers are needed. Julia loads an extension only once *every* package in
@@ -81,7 +81,7 @@ its trigger list is present, and `OrdinaryDiffEq` is not optional — the
     listing zero methods. That means a trigger is missing, not that the function
     is broken.
 
-The package's own `[deps]` is empty by design, so `using IM_AWES_bench` on its
+The package's own `[deps]` is empty by design, so `using InductionMachineDrives` on its
 own pulls in nothing.
 
 ## Getting started

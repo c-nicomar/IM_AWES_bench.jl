@@ -3,7 +3,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
     Pkg.activate(joinpath(@__DIR__))
 end
 
-using IM_AWES_bench
+using InductionMachineDrives
 # This script uses the MTK system builders, which live in a package
 # extension. Both of these are needed to trigger it.
 using ModelingToolkit

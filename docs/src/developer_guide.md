@@ -69,7 +69,7 @@ Build a custom system image that bakes in `ModelingToolkit`, `OrdinaryDiffEq`,
 much faster because these heavy dependencies are already compiled into the
 binary.
 
-**Important**: `IM_AWES_bench` itself is deliberately **not** baked into the
+**Important**: `InductionMachineDrives` itself is deliberately **not** baked into the
 system image, so its source stays editable under Revise without requiring a
 rebuild.
 

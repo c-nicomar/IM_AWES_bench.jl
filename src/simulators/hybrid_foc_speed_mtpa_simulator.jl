@@ -14,7 +14,7 @@
 #
 # The shared helpers speed_reference_ramp_profile and
 # interp_profile_linear are defined by hybrid_foc_speed_f1_simulator.jl,
-# which must be included before this file in IM_AWES_bench.jl.
+# which must be included before this file in InductionMachineDrives.jl.
 #
 # Mechanical sign convention:
 #
