@@ -25,6 +25,9 @@ sim_results/
 figures/generated/
 data/generated/
 
+# Local tool configuration
+.claude/
+
 # OS files
 .DS_Store
 Thumbs.db
