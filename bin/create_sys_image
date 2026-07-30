@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Build the custom system image into bin/. Takes a while (10-20 min), but
+# Build the custom system image into bin/. Takes a while (10-60 min), but
 # afterwards bin/run_julia starts with the heavy dependencies preloaded.
 #
 # Note: julia is started with the *default* system image here, so that the
