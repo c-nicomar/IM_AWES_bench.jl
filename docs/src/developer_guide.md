@@ -64,9 +64,10 @@ bin/run_julia -e 'include(...)'   # run a script non-interactively
 
 ### `bin/create_sys_image`
 
-Build a custom system image that bakes in `OrdinaryDiffEq` and
-`MakieControlPlots`. This makes `bin/run_julia` start much faster because these
-heavy dependencies are already compiled into the binary.
+Build a custom system image that bakes in `OrdinaryDiffEq`,
+`MakieControlPlots`, `CSV`, and `DataFrames`. This makes `bin/run_julia` start
+much faster because these heavy dependencies are already compiled into the
+binary.
 
 `ModelingToolkit` is deliberately **not** baked in — it is only needed by the
 `menu2()` scripts, and keeping it out of the image keeps the image smaller and

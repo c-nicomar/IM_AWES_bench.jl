@@ -1,6 +1,6 @@
 # Build a custom system image containing the large dependencies of this
-# project (OrdinaryDiffEq, Makie/MakieControlPlots). The image lands in `bin/`
-# and is picked up automatically by `bin/run_julia`.
+# project (OrdinaryDiffEq, Makie/MakieControlPlots, CSV, DataFrames). The image
+# lands in `bin/` and is picked up automatically by `bin/run_julia`.
 #
 # Usage:
 #     bin/create_sys_image
@@ -21,6 +21,8 @@ const BIN     = joinpath(ROOT, "bin")
 const PACKAGES = [
     "OrdinaryDiffEq",
     "MakieControlPlots",
+    "CSV",
+    "DataFrames",
 ]
 
 using Libdl: dlext
@@ -36,6 +38,8 @@ const WORKLOAD = """
 using InductionMachineDrives
 using OrdinaryDiffEq
 using MakieControlPlots
+using CSV
+using DataFrames
 
 try
     # Hybrid FOC path: discrete controllers + hand-written plant stepper.
