@@ -56,4 +56,8 @@ You can find the documentation at [InductionMachineDrives](https://c-nicomar.git
 
 MIT License. Copyright (c) 2026 Carolina Nicolás and contributors. See [LICENSE](LICENSE) for details.
 
+## Related packages
 
+- [ElectricMachineWinch.jl](https://github.com/c-nicomar/ElectricMachineWinch.jl) - package that combines a winch model and an electric machine model
+- [KiteModels.jl](https://github.com/OpenSourceAWE/KiteModels.jl) - fast, numeric models of kite power systems
+- [KiteControllers.jl](https://github.com/OpenSourceAWE/KiteControllers.jl) - controllers and path planners for kite power systems
