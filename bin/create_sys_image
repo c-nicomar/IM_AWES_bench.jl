@@ -13,3 +13,14 @@ fi
 export KMP_DUPLICATE_LIB_OK="TRUE"
 
 julia -t auto --startup-file=no test/create_sys_image.jl
+
+# CSV and DataFrames are no longer baked into the image, so their precompile
+# caches have to be (re)built against it once -- otherwise the first script
+# that uses them pays for it interactively.
+for sysimage in bin/sysimage.so bin/sysimage.dylib bin/sysimage.dll; do
+    if [[ -f $sysimage ]]; then
+        echo "Precompiling CSV and DataFrames against $sysimage ..."
+        julia -t auto --startup-file=no --project=scripts -J "$sysimage" -e 'using CSV, DataFrames'
+        break
+    fi
+done

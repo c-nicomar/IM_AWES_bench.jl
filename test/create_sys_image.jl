@@ -1,7 +1,6 @@
 # Build a custom system image containing the large dependencies of this
-# project (ModelingToolkit, OrdinaryDiffEq, Makie/MakieControlPlots, CSV,
-# DataFrames). The image lands in `bin/` and is picked up automatically by
-# `bin/run_julia`.
+# project (ModelingToolkit, OrdinaryDiffEq, Makie/MakieControlPlots). The image
+# lands in `bin/` and is picked up automatically by `bin/run_julia`.
 #
 # Usage:
 #     bin/create_sys_image
@@ -23,8 +22,6 @@ const PACKAGES = [
     "ModelingToolkit",
     "OrdinaryDiffEq",
     "MakieControlPlots",
-    "CSV",
-    "DataFrames",
 ]
 
 using Libdl: dlext
@@ -41,8 +38,6 @@ using InductionMachineDrives
 using ModelingToolkit
 using OrdinaryDiffEq
 using MakieControlPlots
-using CSV
-using DataFrames
 
 try
     # Hybrid FOC path: discrete controllers + hand-written plant stepper.
@@ -56,14 +51,6 @@ try
     simulate_scalar_im(tspan = (0.0, 0.05), f_ref_val = 25.0, Tload_val = 0.0)
 catch err
     @warn "sysimage workload: scalar MTK run failed" err
-end
-
-try
-    io = IOBuffer()
-    CSV.write(io, DataFrame(t = [0.0, 1.0], y = [1.0, 2.0]))
-    CSV.read(IOBuffer(String(take!(io))), DataFrame)
-catch err
-    @warn "sysimage workload: CSV/DataFrames round-trip failed" err
 end
 """
 

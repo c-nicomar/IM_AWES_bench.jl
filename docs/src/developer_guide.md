@@ -65,9 +65,8 @@ bin/run_julia -e 'include(...)'   # run a script non-interactively
 ### `bin/create_sys_image`
 
 Build a custom system image that bakes in `ModelingToolkit`, `OrdinaryDiffEq`,
-`MakieControlPlots`, `CSV`, and `DataFrames`. This makes `bin/run_julia` start
-much faster because these heavy dependencies are already compiled into the
-binary.
+and `MakieControlPlots`. This makes `bin/run_julia` start much faster because
+these heavy dependencies are already compiled into the binary.
 
 **Important**: `InductionMachineDrives` itself is deliberately **not** baked into the
 system image, so its source stays editable under Revise without requiring a
