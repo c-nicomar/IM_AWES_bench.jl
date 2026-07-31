@@ -52,7 +52,7 @@ Features:
   - `menu()` — lists and runs the hybrid FOC simulation scripts
   - `menu2()` — lists and runs the ModelingToolkit-based scripts
 - Loads a custom system image (`bin/sysimage.so` / `.dylib` / `.dll`) if one
-  exists, which skips precompilation of heavy dependencies like `ModelingToolkit`
+  exists, which skips precompilation of heavy dependencies like `OrdinaryDiffEq`
   and `MakieControlPlots` for faster startup.
 - Sets `KMP_DUPLICATE_LIB_OK=TRUE` to avoid OpenMP conflicts on some platforms.
 
@@ -64,9 +64,15 @@ bin/run_julia -e 'include(...)'   # run a script non-interactively
 
 ### `bin/create_sys_image`
 
-Build a custom system image that bakes in `ModelingToolkit`, `OrdinaryDiffEq`,
-and `MakieControlPlots`. This makes `bin/run_julia` start much faster because
-these heavy dependencies are already compiled into the binary.
+Build a custom system image that bakes in `OrdinaryDiffEq` and
+`MakieControlPlots`. This makes `bin/run_julia` start much faster because these
+heavy dependencies are already compiled into the binary.
+
+`ModelingToolkit` is deliberately **not** baked in — it is only needed by the
+`menu2()` scripts, and keeping it out of the image keeps the image smaller and
+avoids extension-visibility surprises. It is precompiled against the freshly
+built image at the end of `bin/create_sys_image`, so `menu2()` scripts still
+start quickly.
 
 **Important**: `InductionMachineDrives` itself is deliberately **not** baked into the
 system image, so its source stays editable under Revise without requiring a
