@@ -71,13 +71,26 @@ binary.
 
 `ModelingToolkit` is deliberately **not** baked in — it is only needed by the
 `menu2()` scripts, and keeping it out of the image keeps the image smaller and
-avoids extension-visibility surprises. It is precompiled against the freshly
-built image at the end of `bin/create_sys_image`, so `menu2()` scripts still
-start quickly.
+avoids extension-visibility surprises.
 
 **Important**: `InductionMachineDrives` itself is deliberately **not** baked into the
 system image, so its source stays editable under Revise without requiring a
 rebuild.
+
+Because neither is in the image, their precompile caches are stale the moment a
+new image is written. `bin/create_sys_image` therefore finishes by loading them
+against the finished image in a single process:
+
+```bash
+julia -t auto --project=scripts -J bin/sysimage.so \
+    -e 'using OrdinaryDiffEq, ModelingToolkit, InductionMachineDrives'
+```
+
+That rebuilds three caches at once — the package, `InductionMachineDrivesMTKExt`
+(both of its triggers are loaded here, so the extension is compiled too), and
+`ModelingToolkit` — so neither `menu()` nor `menu2()` pays for precompilation on
+its first run. Editing anything under `src/` invalidates the package cache
+again; that is the expected trade-off for keeping the source Revise-editable.
 
 ```bash
 bin/create_sys_image    # takes 10–60 minutes

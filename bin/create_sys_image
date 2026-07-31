@@ -14,13 +14,16 @@ export KMP_DUPLICATE_LIB_OK="TRUE"
 
 julia -t auto --startup-file=no test/create_sys_image.jl
 
-# ModelingToolkit is not baked into the image, so its precompile cache has to be
-# (re)built against it once -- otherwise the first menu2() script pays for it
-# interactively.
+# ModelingToolkit and InductionMachineDrives are not baked into the image, so
+# their precompile caches have to be (re)built against it once -- otherwise the
+# first script that uses them pays for it interactively. Loading MTK together
+# with the package also rebuilds the InductionMachineDrivesMTKExt cache, which
+# is what the menu2() scripts wait for.
 for sysimage in bin/sysimage.so bin/sysimage.dylib bin/sysimage.dll; do
     if [[ -f $sysimage ]]; then
-        echo "Precompiling ModelingToolkit against $sysimage ..."
-        julia -t auto --startup-file=no --project=scripts -J "$sysimage" -e 'using ModelingToolkit'
+        echo "Precompiling InductionMachineDrives and ModelingToolkit against $sysimage ..."
+        julia -t auto --startup-file=no --project=scripts -J "$sysimage" \
+            -e 'using OrdinaryDiffEq, ModelingToolkit, InductionMachineDrives'
         break
     fi
 done
