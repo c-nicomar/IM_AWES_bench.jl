@@ -1,4 +1,4 @@
-# IM\_AWES\_bench_jl
+# InductionMachineDrives.jl
 
 Julia simulation project for building and testing induction-machine control structures for AWES ground-station studies.
 

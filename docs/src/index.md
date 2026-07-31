@@ -1,4 +1,4 @@
-# IM\_AWES\_bench.jl
+# InductionMachineDrives.jl
 
 Julia package for modelling, simulating, and testing induction-machine control strategies, providing reusable machine models, observers, discrete controllers, estimators, and standalone benchmark simulators
 for a squirrel-cage induction machine under field-oriented control (FOC).

@@ -1,4 +1,4 @@
-# IM\_AWES\_bench.jl
+# InductionMachineDrives.jl
 
 Julia package for modelling, simulating, and testing induction-machine control strategies, providing a generic induction machine model and different estimators and controllers. 
 
