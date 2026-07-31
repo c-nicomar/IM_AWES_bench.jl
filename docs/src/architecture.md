@@ -20,16 +20,6 @@ InductionMachineDrives_jl/
 ├── profiles/
 │   └── delta_kite_13_ms_profiles.csv
 ├── results/
-│   ├── foc_current_hybrid_steps.csv
-│   ├── foc_current_steps.csv
-│   ├── foc_speed_f1_awes_profile.csv
-│   ├── foc_speed_f1_ramp_load_estimator.csv
-│   ├── foc_speed_f1_ramp_load_steps.csv
-│   ├── foc_torque_f1_steps.csv
-│   ├── scalar_frequency_steps_load_steps_with_observer.csv
-│   ├── scalar_frequency_steps_load_steps.csv
-│   ├── scalar_frequency_steps_results.csv
-│   └── scalar_im_25Hz_results.csv
 ├── scripts/
 │   ├── run_foc_current_hybrid_steps.jl
 │   ├── run_foc_current_steps.jl
