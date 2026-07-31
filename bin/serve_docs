@@ -4,6 +4,12 @@
 # and open that page in the default browser. Rebuilds whenever a watched file
 # changes; Ctrl-C to stop.
 #
+# The docs environment (docs/Project.toml) is not a member of the workspace
+# declared in the root Project.toml, so it resolves on its own and its
+# Manifest.toml is gitignored. Pkg.instantiate() below resolves it on a fresh
+# checkout and is a cheap no-op once that has happened, so serving the docs
+# works without running bin/build_docs first.
+#
 # LiveServer lives in the global environment (@v1.12) rather than in
 # docs/Project.toml, so CI does not instantiate it. It is still found here
 # because the default LOAD_PATH includes the global environment alongside the
@@ -38,6 +44,9 @@ if [[ "${1:-}" == "--no-browser" ]]; then
 fi
 
 export KMP_DUPLICATE_LIB_OK="TRUE"
+
+echo "Instantiating the docs environment ..."
+julia --startup-file=no --project=docs -e 'using Pkg; Pkg.instantiate()'
 
 echo "Checking for LiveServer in the global environment ..."
 julia --startup-file=no -e '
