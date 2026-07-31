@@ -22,7 +22,7 @@ julia -t auto --startup-file=no test/create_sys_image.jl
 for sysimage in bin/sysimage.so bin/sysimage.dylib bin/sysimage.dll; do
     if [[ -f $sysimage ]]; then
         echo "Precompiling InductionMachineDrives and ModelingToolkit against $sysimage ..."
-        julia -t auto --startup-file=no --project=scripts -J "$sysimage" \
+        julia -t auto --project=scripts -J "$sysimage" \
             -e 'using OrdinaryDiffEq, ModelingToolkit, InductionMachineDrives'
         break
     fi
