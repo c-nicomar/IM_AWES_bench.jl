@@ -52,7 +52,7 @@ Features:
   - `menu()` — lists and runs the hybrid FOC simulation scripts
   - `menu2()` — lists and runs the ModelingToolkit-based scripts
 - Loads a custom system image (`bin/sysimage.so` / `.dylib` / `.dll`) if one
-  exists, which skips precompilation of heavy dependencies like `ModelingToolkit`
+  exists, which skips precompilation of heavy dependencies like `OrdinaryDiffEq`
   and `MakieControlPlots` for faster startup.
 - Sets `KMP_DUPLICATE_LIB_OK=TRUE` to avoid OpenMP conflicts on some platforms.
 
@@ -64,14 +64,33 @@ bin/run_julia -e 'include(...)'   # run a script non-interactively
 
 ### `bin/create_sys_image`
 
-Build a custom system image that bakes in `ModelingToolkit`, `OrdinaryDiffEq`,
+Build a custom system image that bakes in `OrdinaryDiffEq`,
 `MakieControlPlots`, `CSV`, and `DataFrames`. This makes `bin/run_julia` start
 much faster because these heavy dependencies are already compiled into the
 binary.
 
+`ModelingToolkit` is deliberately **not** baked in — it is only needed by the
+`menu2()` scripts, and keeping it out of the image keeps the image smaller and
+avoids extension-visibility surprises.
+
 **Important**: `InductionMachineDrives` itself is deliberately **not** baked into the
 system image, so its source stays editable under Revise without requiring a
 rebuild.
+
+Because neither is in the image, their precompile caches are stale the moment a
+new image is written. `bin/create_sys_image` therefore finishes by loading them
+against the finished image in a single process:
+
+```bash
+julia -t auto --project=scripts -J bin/sysimage.so \
+    -e 'using OrdinaryDiffEq, ModelingToolkit, InductionMachineDrives'
+```
+
+That rebuilds three caches at once — the package, `InductionMachineDrivesMTKExt`
+(both of its triggers are loaded here, so the extension is compiled too), and
+`ModelingToolkit` — so neither `menu()` nor `menu2()` pays for precompilation on
+its first run. Editing anything under `src/` invalidates the package cache
+again; that is the expected trade-off for keeping the source Revise-editable.
 
 ```bash
 bin/create_sys_image    # takes 10–60 minutes

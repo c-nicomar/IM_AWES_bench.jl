@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "62f980451929031c1fbb50d071ed7030aedcadfd"
+project_hash = "8366ac1940d5737262aab2d4288a5b8e7b893409"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "ec6be48a85c93d995563b84bff8a86bc98df45ce"
@@ -1043,15 +1043,6 @@ git-tree-sha1 = "18d7deab5fb0440dc6a7b6993c5c27b25420de10"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.29"
 
-[[deps.InductionMachineDrives]]
-path = "."
-uuid = "d85c8359-f9b8-4611-8006-e67b7a824205"
-version = "1.0.0"
-weakdeps = ["ModelingToolkit", "OrdinaryDiffEq"]
-
-    [deps.InductionMachineDrives.extensions]
-    InductionMachineDrivesMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]
-
 [[deps.ImageAxes]]
 deps = ["AxisArrays", "ImageBase", "ImageCore", "Reexport", "SimpleTraits"]
 git-tree-sha1 = "e12629406c6c4442539436581041d372d69c55ba"
@@ -1098,6 +1089,15 @@ version = "2.1.4"
 git-tree-sha1 = "012e604e1c7458645cb8b436f8fba789a51b257f"
 uuid = "9b13fd28-a010-5f03-acff-a1bbcff69959"
 version = "1.0.0"
+
+[[deps.InductionMachineDrives]]
+path = "."
+uuid = "d85c8359-f9b8-4611-8006-e67b7a824205"
+version = "1.0.0"
+weakdeps = ["ModelingToolkit", "OrdinaryDiffEq"]
+
+    [deps.InductionMachineDrives.extensions]
+    InductionMachineDrivesMTKExt = ["ModelingToolkit", "OrdinaryDiffEq"]
 
 [[deps.Inflate]]
 git-tree-sha1 = "d1b1b796e47d94588b3757fe84fbf65a5ec4a80d"

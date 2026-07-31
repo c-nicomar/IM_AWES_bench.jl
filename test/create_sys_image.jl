@@ -1,7 +1,6 @@
 # Build a custom system image containing the large dependencies of this
-# project (ModelingToolkit, OrdinaryDiffEq, Makie/MakieControlPlots, CSV,
-# DataFrames). The image lands in `bin/` and is picked up automatically by
-# `bin/run_julia`.
+# project (OrdinaryDiffEq, Makie/MakieControlPlots, CSV, DataFrames). The image
+# lands in `bin/` and is picked up automatically by `bin/run_julia`.
 #
 # Usage:
 #     bin/create_sys_image
@@ -20,7 +19,6 @@ const BIN     = joinpath(ROOT, "bin")
 # The scripts environment is the superset of everything used interactively,
 # so the image is built against it.
 const PACKAGES = [
-    "ModelingToolkit",
     "OrdinaryDiffEq",
     "MakieControlPlots",
     "CSV",
@@ -38,7 +36,6 @@ const SYSIMAGE_PATH = joinpath(BIN, "sysimage." * dlext)
 # fails should degrade the image, not abort the build.
 const WORKLOAD = """
 using InductionMachineDrives
-using ModelingToolkit
 using OrdinaryDiffEq
 using MakieControlPlots
 using CSV
@@ -49,21 +46,6 @@ try
     simulate_foc_current_hybrid(t_end = 0.05, Ts = 100e-6)
 catch err
     @warn "sysimage workload: hybrid FOC run failed" err
-end
-
-try
-    # Symbolic path: exercises MTK model building and the ODE solver.
-    simulate_scalar_im(tspan = (0.0, 0.05), f_ref_val = 25.0, Tload_val = 0.0)
-catch err
-    @warn "sysimage workload: scalar MTK run failed" err
-end
-
-try
-    io = IOBuffer()
-    CSV.write(io, DataFrame(t = [0.0, 1.0], y = [1.0, 2.0]))
-    CSV.read(IOBuffer(String(take!(io))), DataFrame)
-catch err
-    @warn "sysimage workload: CSV/DataFrames round-trip failed" err
 end
 """
 
